@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Windows.Shapes;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.Options;
@@ -24,6 +25,7 @@ using WolvenKit.RED4.Archive.CR2W;
 using WolvenKit.RED4.Archive.IO;
 using WolvenKit.RED4.CR2W;
 using WolvenKit.RED4.Types;
+using Path = System.IO.Path;
 
 namespace WolvenKit.App.ViewModels.Documents;
 
@@ -192,7 +194,11 @@ public partial class RedDocumentViewModel : DocumentViewModel
                     return;
                 }
 
-                SaveHashedValues(cr2w);
+                if (!CheckAndStorePaths(cr2w))
+                {
+                    _loggerService.Error($"Error while saving file");
+                    return;
+                }
 
                 using var writer = new CR2WWriter(ms, Encoding.UTF8, true) { LoggerService = _loggerService };
                 writer.WriteFile(cr2w);
@@ -217,26 +223,35 @@ public partial class RedDocumentViewModel : DocumentViewModel
         await Task.CompletedTask;
     }
 
-    private void SaveHashedValues(CR2WFile file)
+    private bool CheckAndStorePaths(CR2WFile file)
     {
-        if (_hashService is not HashServiceExt hashService)
+        var hashService = _hashService as HashServiceExt;
+
+        var embeddedFilePaths = new List<ResourcePath>();
+        foreach (var embeddedFile in file.EmbeddedFiles)
         {
-            return;
+            embeddedFilePaths.Add(embeddedFile.FileName);
         }
-        
+        var embeddedFilePathsReminder = new List<ResourcePath>(embeddedFilePaths);
+
         foreach (var (path, value) in file.RootChunk.GetEnumerator())
         {
             if (value is IRedRef redRef && redRef.DepotPath != ResourcePath.Empty)
             {
-                if (!redRef.DepotPath.TryGetResolvedText(out var refPath))
+                var redRefPath = redRef.DepotPath.GetResolvedText();
+
+                if (!PathChecks(path, redRef, redRefPath))
                 {
-                    continue;
+                    return false;
                 }
 
-                hashService.AddResourcePath(refPath);
+                if (redRefPath != null)
+                {
+                    hashService?.AddResourcePath(redRefPath);
+                }
             }
 
-            if (value is TweakDBID tweakDbId && tweakDbId != TweakDBID.Empty)
+            if (hashService != null && value is TweakDBID tweakDbId && tweakDbId != TweakDBID.Empty)
             {
                 if (!tweakDbId.TryGetResolvedText(out var tweakName))
                 {
@@ -245,6 +260,103 @@ public partial class RedDocumentViewModel : DocumentViewModel
 
                 hashService.AddTweakName(tweakName);
             }
+        }
+
+        if (embeddedFilePathsReminder.Count > 0)
+        {
+            foreach (var resourcePath in embeddedFilePathsReminder)
+            {
+                _loggerService.Info($"Unused embedded file found ({resourcePath.GetResolvedText()})");
+            }
+        }
+
+        return true;
+
+        bool PathChecks(string valuePath, IRedRef reference, string? referencePath)
+        {
+            var isArchiveXlPath = referencePath != null && referencePath.StartsWith('*');
+
+            // Check if referenced embedded file exists
+            if (reference.Flags == InternalEnums.EImportFlags.Embedded)
+            {
+                if (!embeddedFilePaths.Contains(reference.DepotPath))
+                {
+                    _loggerService.Error($"\"{valuePath}\" is referencing a non-existing embedded file.");
+                    return false;
+                }
+
+                embeddedFilePathsReminder.Remove(reference.DepotPath);
+            }
+            else
+            {
+                // Check if non embedded (and non AXL path) files exists
+                if (!isArchiveXlPath && _archiveManager.GetGameFile(reference.DepotPath) == null)
+                {
+                    var errorMessage = $"\"{valuePath}\" is referencing a non-existing file.";
+                    if (referencePath != null)
+                    {
+                        errorMessage += $" ({referencePath})";
+                    }
+
+                    _loggerService.Error(errorMessage);
+                    return false;
+                }
+            }
+
+            // Soft is not allowed for rRef...
+            if (reference is IRedResourceReference && reference.Flags == InternalEnums.EImportFlags.Soft)
+            {
+                // ... except for AXL stuff
+                if (!isArchiveXlPath)
+                {
+                    _loggerService.Warning($"\"{valuePath}\" is an sync reference but uses the \"{reference.Flags}\" flag. This can cause game crashes!");
+                }
+            }
+
+            // Non soft is not allowed for raRef
+            if (reference is IRedResourceAsyncReference && reference.Flags != InternalEnums.EImportFlags.Soft)
+            {
+                _loggerService.Warning($"\"{valuePath}\" is an async reference but uses the \"{reference.Flags}\" flag. This can cause game crashes!");
+            }
+
+            // Further test doesn't work if the path isn't resolvable
+            if (referencePath == null)
+            {
+                return true;
+            }
+
+            var extensionStr = Path.GetExtension(referencePath);
+
+            // Check for missing extension
+            if (string.IsNullOrEmpty(extensionStr))
+            {
+                _loggerService.Warning($"\"{valuePath}\" has no file extension");
+                return true;
+            }
+            extensionStr = extensionStr[1..];
+
+            // Check for unknown extension
+            if (!Enum.TryParse<ERedExtension>(extensionStr, out _))
+            {
+                _loggerService.Warning($"\"{valuePath}\" has an unknown file extension \"{extensionStr}\"");
+                return true;
+            }
+            
+            // Check for not matching extension
+            if (reference.InnerType != typeof(CResource))
+            {
+                var validExtensions = FileTypeHelper.FileTypes
+                    .Where(x => x.RootType.IsAssignableTo(reference.InnerType))
+                    .Select(x => x.Extension.ToString())
+                    .ToList();
+
+                if (!validExtensions.Contains(extensionStr))
+                {
+                    _loggerService.Warning($"\"{valuePath}\" has a wrong file extension. Looking for \"{string.Join(", ", validExtensions)}\" got \"{extensionStr}\"");
+                }
+            }
+
+            return true;
         }
     }
 

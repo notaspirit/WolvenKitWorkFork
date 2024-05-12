@@ -31,6 +31,8 @@ public readonly struct CResourceReference<T> : IRedResourceReference<T>, IEquata
     public ResourcePath DepotPath => _depotPath;
     public InternalEnums.EImportFlags Flags => _flags;
 
+    public Type InnerType => typeof(T);
+
     public bool IsSet => _depotPath != ResourcePath.Empty;
 
     public bool Equals(CResourceReference<T> other)

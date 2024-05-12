@@ -31,6 +31,8 @@ public readonly struct CResourceAsyncReference<T> : IRedResourceAsyncReference<T
     public ResourcePath DepotPath => _depotPath;
     public InternalEnums.EImportFlags Flags => _flags;
 
+    public Type InnerType => typeof(T);
+
     public bool IsSet => _depotPath != ResourcePath.Empty;
 
     public bool Equals(CResourceAsyncReference<T> other)
