@@ -403,15 +403,24 @@ public sealed class Cp77Project(string location, string name, string modName) : 
         {
             return fullPath[(ModDirectory.Length + 1)..];
         }
+        
         if (fullPath.StartsWith(RawDirectory, StringComparison.Ordinal))
         {
             var rel = fullPath[(RawDirectory.Length + 1)..];
             return rel;
         }
 
-        return fullPath.StartsWith(FileDirectory, StringComparison.Ordinal)
-            ? fullPath[(FileDirectory.Length + 1)..]
-            : fullPath.StartsWith(PackedRootDirectory, StringComparison.Ordinal) ? fullPath[(PackedRootDirectory.Length + 1)..] : fullPath;
+        if (fullPath.StartsWith(FileDirectory, StringComparison.Ordinal))
+        {
+            return fullPath[(FileDirectory.Length + 1)..];
+        }
+
+        if (fullPath.StartsWith(PackedRootDirectory, StringComparison.Ordinal))
+        {
+            return fullPath[(PackedRootDirectory.Length + 1)..];
+        }
+
+        return fullPath;
     }
 
     // Conversions
@@ -452,5 +461,6 @@ public sealed class Cp77Project(string location, string name, string modName) : 
     #endregion implements IEquatable
 
     public override string ToString() => Location;
-    
+
+    public string GetAbsolutePath(string relativePath) => $"{ModFiles}{Path.DirectorySeparatorChar}{GetRelativePath(relativePath)}";
 }
