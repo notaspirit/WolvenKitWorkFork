@@ -983,27 +983,43 @@ public partial class AppViewModel : ObservableObject/*, IAppViewModel*/
     private async Task OpenFromNewFile(NewFileViewModel? file)
     {
         CloseModalCommand.Execute(null);
-        if (file == null)
+        if (file is null or { RequiresFilePath: true, FullPath: null })
         {
+            return;
+        }
+
+        if (!file.RequiresFilePath)
+        {
+            RunComplexNewFileAction(file);
             return;
         }
 
         await Task.Run(() => OpenFromNewFileTask(file)).ContinueWith(async (_) =>
         {
-            if (file.FullPath is not null)
+            if (file.FullPath is not null && File.Exists(file.FullPath))
             {
                 await RequestFileOpen(file.FullPath);
             }
         });
     }
 
-    private static async Task OpenFromNewFileTask(NewFileViewModel file)
+    private void RunComplexNewFileAction(NewFileViewModel file)
     {
-        if (file.SelectedFile is null)
+        if (file.SelectedFile?.Type is null)
         {
             return;
         }
-        if (file.FullPath is null)
+
+        // ArchiveXL stuff not implemented yet
+        if (file.SelectedFile?.Type is EWolvenKitFile.Complex_NPV)
+        {
+            Interactions.ShowNpvCreationDialogue();
+        }
+    }
+
+    private static async Task OpenFromNewFileTask(NewFileViewModel file)
+    {
+        if (file.SelectedFile is null || file.FullPath is null)
         {
             return;
         }
@@ -1060,6 +1076,11 @@ public partial class AppViewModel : ObservableObject/*, IAppViewModel*/
                     writer.WriteFile(cr2W);
                 }
                 break;
+            // These should be handled by ComplexAction
+            case EWolvenKitFile.Complex_NPV:
+            case EWolvenKitFile.Complex_XL_Control:
+            case EWolvenKitFile.Complex_XL_Item:
+            // Where's this handled?
             case EWolvenKitFile.WScript:
                 throw new NotImplementedException();
             default:
@@ -1127,7 +1148,7 @@ public partial class AppViewModel : ObservableObject/*, IAppViewModel*/
 
         return result == WMessageBoxResult.Yes;
     }
-
+    
     public void ReloadChangedFiles()
     {
         for (var i = DockedViews.Count - 1; i >= 0; i--)
@@ -1676,6 +1697,9 @@ public partial class AppViewModel : ObservableObject/*, IAppViewModel*/
             case EWolvenKitFile.ArchiveXl:
             case EWolvenKitFile.RedScript:
             case EWolvenKitFile.CETLua:
+            case EWolvenKitFile.Complex_NPV:
+            case EWolvenKitFile.Complex_XL_Control:
+            case EWolvenKitFile.Complex_XL_Item:
             default:
                 break;
         }
