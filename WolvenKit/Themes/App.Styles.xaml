@@ -15,10 +15,11 @@
         <sfskin:ResourceDictionaryProvider DictionaryName="Common" ThemeName="MaterialDark" />
         <sfskin:ResourceDictionaryProvider DictionaryName="Brushes" ThemeName="MaterialDark" />
         <ResourceDictionary Source="/Syncfusion.Themes.MaterialDark.WPF;component/DockingManager/DockingManager.xaml" />
+        <ResourceDictionary Source="/Syncfusion.Themes.MaterialDark.WPF;component/comboboxadv/comboboxadv.xaml" />
+               
         <ResourceDictionary Source="pack://application:,,,/HandyControl;component/Themes/basic/colors/dark.xaml" />
         <ResourceDictionary Source="pack://application:,,,/HandyControl;component/Themes/Theme.xaml" />
-        <ResourceDictionary Source="/Syncfusion.Themes.MaterialDark.WPF;component/comboboxadv/comboboxadv.xaml" />
-       
+        <ResourceDictionary Source="/Syncfusion.Themes.MaterialDark.WPF;component/comboboxadv/comboboxadv.xaml" />   
         
     </ResourceDictionary.MergedDictionaries>
 
