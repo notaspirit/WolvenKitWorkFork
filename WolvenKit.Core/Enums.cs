@@ -133,6 +133,8 @@ namespace WolvenKit.Common
     {
         Basegame,
         Mods,
+        BasegameAndMods,
+        LocalProject,
         Everywhere
     }
 

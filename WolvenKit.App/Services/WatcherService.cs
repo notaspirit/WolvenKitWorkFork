@@ -75,7 +75,9 @@ public partial class WatcherService : ObservableObject, IWatcherService
         Refresh();
     }
 
-    public void UnwatchProject(Cp77Project project) => UnwatchLocation();
+    public void Resume() => _modsWatcher.EnableRaisingEvents = true;
+
+    public void UnwatchProject(Cp77Project? project) => UnwatchLocation();
 
     private void WatchLocation()
     {
@@ -138,7 +140,10 @@ public partial class WatcherService : ObservableObject, IWatcherService
             }
             catch (Exception)
             {
-                _loggerService?.Error($"Project Explorer: something went wrong while changing {e.Name}. You can try a manual refresh.");
+                if (!(e.Name ?? "").Contains("_tmp"))
+                {
+                    _loggerService?.Error($"Project Explorer: something went wrong while changing {e.Name}. You can try a manual refresh.");
+                }
             }
         }
 
@@ -393,6 +398,8 @@ public partial class WatcherService : ObservableObject, IWatcherService
             }
         }
     }
+
+    public void Suspend() => _modsWatcher.EnableRaisingEvents = false;
 
     private void OnRenamed(object sender, RenamedEventArgs e) => _fileChanges.Enqueue(new FileSystemEventArgsWrapper(e));
 

@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
+using System.IO;
 using System.Linq;
 using System.Reactive.Disposables;
 using System.Threading.Tasks;
@@ -13,6 +14,7 @@ using WolvenKit.App.Factories;
 using WolvenKit.App.Models;
 using WolvenKit.App.Models.Nodify;
 using WolvenKit.App.Services;
+using WolvenKit.App.ViewModels.Events;
 using WolvenKit.App.ViewModels.Shell;
 using WolvenKit.App.ViewModels.Tools.EditorDifficultyLevel;
 using WolvenKit.Common.FNV1A;
@@ -55,7 +57,8 @@ public partial class RDTDataViewModel : RedDocumentTabViewModel
         Nodes.Add(new ResourcePathWrapper(this, new ReferenceSocket(Chunks[0].RelativePath), _appViewModel, _chunkViewmodelFactory));
         _nodePaths.Add(Chunks[0].RelativePath);
 
-
+        SubscribeToChunkPropertyChanges();
+        
         if (SelectedChunk == null && Chunks.Count > 0)
         {
             SelectedChunk = Chunks[0];
@@ -68,22 +71,41 @@ public partial class RDTDataViewModel : RedDocumentTabViewModel
         parent.PropertyChanged += RDTDataViewModel_PropertyChanged;
     }
 
+    private void SubscribeToChunkPropertyChanges()
+    {
+        if (GetRootChunk() is not ChunkViewModel cvm || cvm.ResolvedData is not inkTextureAtlas ||
+            cvm.GetPropertyChild("slots", "0") is not ChunkViewModel firstSlot || firstSlot.ResolvedData is not inkTextureSlot slot ||
+            slot.Texture.DepotPath != ResourcePath.Empty)
+        {
+            return;
+        }
+
+        firstSlot.PropertyChanged += WaitForTexturePath;
+    }
+
+    public event EventHandler? OnReloadRequired;
+
+    private void WaitForTexturePath(object? sender, PropertyChangedEventArgs evt)
+    {
+        if (sender is not ChunkViewModel cvm || evt.PropertyName != nameof(cvm.Value) || string.IsNullOrEmpty(cvm.Value))
+        {
+            return;
+        }
+
+        cvm.PropertyChanged -= WaitForTexturePath;
+        OnReloadRequired?.Invoke(this, EventArgs.Empty);
+    }
+
     public ChunkViewModel? GetRootChunk() => Chunks.FirstOrDefault();
 
-    public override RedDocumentItemType GetContentType()
-    {
-        switch (GetRootChunk()?.ResolvedData)
+    public override RedDocumentItemType GetContentType() => GetRootChunk()?.ResolvedData switch
         {
-            case CMesh:
-                return RedDocumentItemType.Mesh;
-            case appearanceAppearanceResource:
-                return RedDocumentItemType.App;
-            case entEntityTemplate:
-                return RedDocumentItemType.Ent;
-            default:
-                return RedDocumentItemType.Other;
-        }
-    }
+            CMesh => RedDocumentItemType.Mesh,
+            appearanceAppearanceResource => RedDocumentItemType.App,
+            entEntityTemplate => RedDocumentItemType.Ent,
+            CMaterialInstance => RedDocumentItemType.Mi,
+            _ => base.GetContentType()
+        };
 
     private void RDTDataViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
@@ -434,6 +456,10 @@ public partial class RDTDataViewModel : RedDocumentTabViewModel
         {
             lst.Add(chunk);
         }
+
+        // clear IsSelected property again, because it'll be "stuck" otherwise 
+        chunk.IsSelected = false;
+        
     }
 
     public void SetSelection(List<ChunkViewModel> chunks)
@@ -514,5 +540,14 @@ public partial class RDTDataViewModel : RedDocumentTabViewModel
 
         ExpandParentNodes(selectedNode);
         SetSelection(selectedNode);
+    }
+
+    // A material was renamed
+    public void OnCNameValueChanged(ValueChangedEventArgs args)
+    {
+        if (args.RedType == typeof(CMeshMaterialEntry))
+        {
+            GetRootChunk()?.OnMaterialNameChange(args.OldValue, args.NewValue);
+        }
     }
 }

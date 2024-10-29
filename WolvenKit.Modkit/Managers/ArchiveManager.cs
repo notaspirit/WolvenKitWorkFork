@@ -8,6 +8,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using DynamicData;
 using DynamicData.Kernel;
 using WolvenKit.Common;
+using WolvenKit.Common.Extensions;
 using WolvenKit.Common.Services;
 using WolvenKit.Core.Extensions;
 using WolvenKit.Core.Interfaces;
@@ -35,7 +36,7 @@ namespace WolvenKit.RED4.CR2W.Archive
         [ObservableProperty] private bool _isManagerLoading;
         [ObservableProperty] private bool _isManagerLoaded;
 
-        private static readonly List<string> s_loadOrder = new() { "memoryresident", "ep1", "basegame", "audio", "lang" };
+        private static readonly List<string> s_loadOrder = ["memoryresident", "ep1", "basegame", "audio", "lang"];
 
         #endregion Fields
 
@@ -84,6 +85,29 @@ namespace WolvenKit.RED4.CR2W.Archive
 
         #region loading
 
+        public bool IsInitialized { get; private set; }
+
+        public virtual void Initialize(FileInfo executable, bool scanArchives = false)
+        {
+            if (IsInitialized)
+            {
+                return;
+            }
+
+            if (!GetGameArchives().Any())
+            {
+                LoadGameArchives(executable);
+            }
+
+            if (!GetModArchives().Any())
+            {
+                LoadModArchives(executable, scanArchives);
+            }
+
+            IsInitialized = true;
+        }
+        
+        
         /// <summary>
         /// Load every non-mod bundle it can find in ..\..\content and ..\..\DLC
         /// </summary>
@@ -200,31 +224,31 @@ namespace WolvenKit.RED4.CR2W.Archive
         }
 
         /// <summary>
-        /// Load a single mod bundle
+        /// Load a single mod bundle and optionally analyze its content.
         /// </summary>
-        /// <param name="filename">
-        /// file to process
-        /// </param>
+        /// <param name="absoluteFilepath"> absolute path of file to process </param>
         /// <param name="analyzeFiles"></param>
-        public void LoadModArchive(string filename, bool analyzeFiles = true)
+        /// <param name="forceRescan"></param>
+        public void LoadModArchive(string absoluteFilepath, bool analyzeFiles = true, bool forceRescan = false)
         {
-            if (Archives.Lookup(filename).HasValue)
+            if (!forceRescan && Archives.Lookup(absoluteFilepath).HasValue)
             {
                 return;
             }
 
-            var archive = _wolvenkitFileService.ReadRed4Archive(filename, _hashService);
+            var archiveName = Path.GetFileName(absoluteFilepath).Replace(".archive", "");
+            var archive = _wolvenkitFileService.ReadRed4Archive(absoluteFilepath, _hashService);
 
             if (archive == null)
             {
-                _logger.Warning($"Unable to load mod archive: {filename}");
+                _logger.Warning($"Unable to load mod archive: {archiveName}");
                 return;
             }
 
             archive.Source = EArchiveSource.Mod;
             Archives.AddOrUpdate(archive);
 
-            if (!analyzeFiles || GetIgnoredArchiveNames().Contains(archive.Name.Replace(".archive", "")))
+            if (!analyzeFiles)
             {
                 return;
             }
@@ -253,7 +277,7 @@ namespace WolvenKit.RED4.CR2W.Archive
 
             if (importError)
             {
-                _logger.Warning($"Error while loading the following mod archive: {filename}");
+                _logger.Warning($"Error while loading the following mod archive: {archiveName}");
                 _logger.Warning("  You can exclude it from analysis in the settings under 'Exclude archives from scan by name'");
             }
         }
@@ -261,7 +285,7 @@ namespace WolvenKit.RED4.CR2W.Archive
         /// <summary>
         /// Loads bundles from specified mods and dlc folder
         /// </summary>
-        public virtual void LoadModsArchives(FileInfo executable, bool analyzeFiles = true)
+        public virtual void LoadModArchives(FileInfo executable, bool analyzeFiles = true, string[]? ignoredArchives = null)
         {
             var di = executable.Directory;
             if (di?.Parent?.Parent is null)
@@ -273,6 +297,8 @@ namespace WolvenKit.RED4.CR2W.Archive
                 return;
             }
 
+            ignoredArchives ??= [];
+            
             IsManagerLoading = true;
             _progressService.IsIndeterminate = true;
 
@@ -294,12 +320,32 @@ namespace WolvenKit.RED4.CR2W.Archive
             var enabledButNotDeployed = new List<string>();
             var enabledButDontExist = new List<string>();
 
+
             if (Directory.Exists(legacyModPath))
             {
                 legacyFiles.AddRange(Directory.GetFiles(legacyModPath, "*.archive", SearchOption.TopDirectoryOnly));
             }
 
-            // parse REDmods
+            if (Directory.Exists(redModBasePath))
+            {
+                // load all archive files in redmod folders, recursively, we don't care if the installation is valid
+                foreach (var folder in Directory.GetDirectories(redModBasePath))
+                {
+                    var redModArchivesDir = Path.Combine(redModBasePath, folder, "archives");
+                    if (!Directory.Exists(redModArchivesDir))
+                    {
+                        continue;
+                    }
+
+                    var modArchives = Directory.GetFiles(redModArchivesDir, "*.archive", SearchOption.AllDirectories).ToList();
+                    modArchives.Sort(string.CompareOrdinal);
+                    modArchives.Reverse();
+
+                    redModFiles.AddRange(modArchives);
+                }
+            }
+
+            // now check if they're valid
             if (File.Exists(redModModsJson))
             {
                 var modsJson = File.Open(redModModsJson, FileMode.Open);
@@ -310,33 +356,21 @@ namespace WolvenKit.RED4.CR2W.Archive
                 foreach (var mod in modsArr.Where(mod => mod.GetProperty("enabled").GetBoolean()))
                 {
                     var folder = mod.GetProperty("folder").GetString().NotNull();
-                    var redModArchivesDir = Path.Combine(redModBasePath, folder, "archives");
 
                     if (!mod.GetProperty("deployed").GetBoolean())
                     {
                         enabledButNotDeployed.Add(folder);
                     }
 
-                    if (!Directory.Exists(folder))
+                    if (!Directory.Exists(Path.Combine(redModBasePath, folder)))
                     {
                         enabledButDontExist.Add($"mods/{folder}");
-                        continue;
                     }
-
-                    if (!Directory.Exists(redModArchivesDir))
-                    {
-                        continue;
-                    }
-
-                    var modArchives = Directory.GetFiles(redModArchivesDir, "*.archive", SearchOption.TopDirectoryOnly).ToList();
-                    modArchives.Sort(string.CompareOrdinal);
-                    modArchives.Reverse();
-
-                    redModFiles.AddRange(modArchives);
                 }
 
                 modsJson.Close();
             }
+
 
             // parse legacy mod txt
             if (File.Exists(legacyModlistTxt))
@@ -384,14 +418,14 @@ namespace WolvenKit.RED4.CR2W.Archive
             var progress = 0;
 
             _progressService.IsIndeterminate = false;
-            foreach (var file in redModFiles)
+            foreach (var file in redModFiles.Where(f => !ignoredArchives.Contains(Path.GetFileName(f).Replace(".archive", ""))))
             {
                 LoadModArchive(file, analyzeFiles);
                 progress += 1;
                 _progressService.Report(progress / (float)numTotalEntries);
-            } 
+            }
 
-            foreach (var file in legacyFiles)
+            foreach (var file in legacyFiles.Where(f => !ignoredArchives.Contains(Path.GetFileName(f).Replace(".archive", ""))))
             {
                 LoadModArchive(file, analyzeFiles);
                 progress += 1;
@@ -404,7 +438,7 @@ namespace WolvenKit.RED4.CR2W.Archive
             IsManagerLoaded = true;
         }
 
-        public virtual void LoadAdditionalModArchives(string archiveBasePath, bool analyzeFiles = true)
+        public virtual void LoadAdditionalModArchives(string archiveBasePath, bool analyzeFiles = true, string[]? ignoredArchives = null)
         {
             if (!Directory.Exists(archiveBasePath))
             {
@@ -412,12 +446,10 @@ namespace WolvenKit.RED4.CR2W.Archive
             }
 
             IsManagerLoading = true;
+            ignoredArchives ??= [];
 
-            var files = new List<string>();
-            foreach (var archiveFile in Directory.GetFiles(archiveBasePath, "*.archive", SearchOption.AllDirectories))
-            {
-                files.Add(archiveFile);
-            }
+            var files = Directory.GetFiles(archiveBasePath, "*.archive", SearchOption.AllDirectories)
+                .ToList();
 
             if (files.Count == 0)
             {
@@ -431,10 +463,18 @@ namespace WolvenKit.RED4.CR2W.Archive
 
             foreach (var file in files)
             {
+                var fileName = Path.GetFileName(file).Replace(".archive", "");
+                if (ignoredArchives.Contains(fileName))
+                {
+                    _logger.Info($"{fileName} ignored via settings, skipping...");
+                    continue;
+                }
                 LoadModArchive(file, analyzeFiles);
                 progress += 1;
                 _progressService.Report(progress / totalFiles);
             }
+
+            files = files.Where(f => !ignoredArchives.Contains(Path.GetFileName(f).Replace(".archive", ""))).ToList();
 
             // set relative paths
             foreach (var archive in Archives.Items)
@@ -467,23 +507,35 @@ namespace WolvenKit.RED4.CR2W.Archive
         /// <returns></returns>
         public Dictionary<string, IEnumerable<IGameFile>> GetGroupedFiles(ArchiveManagerScope searchScope)
         {
-            if (searchScope is ArchiveManagerScope.Mods)
+            Dictionary<string, IEnumerable<IGameFile>> ret = [];
+            
+            // project files
+            if (searchScope is (ArchiveManagerScope.LocalProject or ArchiveManagerScope.Everywhere) && ProjectArchive is not null)
             {
-                return GetModArchives()
+                ret.MergeRange(ProjectArchive.Files.Values
+                    .GroupBy(gameFile => gameFile.Extension)
+                    .ToDictionary(gameFiles => gameFiles.Key, gameFiles => gameFiles.Select(x => x))); 
+            }
+            
+            // base game files
+            if (searchScope is ArchiveManagerScope.Basegame or ArchiveManagerScope.Everywhere or ArchiveManagerScope.BasegameAndMods)
+            {
+                ret.MergeRange(GetGameArchives()
                     .SelectMany(archive => archive.Files.Values)
                     .GroupBy(gameFile => gameFile.Extension)
-                    .ToDictionary(gameFiles => gameFiles.Key, gameFiles => gameFiles.Select(x => x));
+                    .ToDictionary(gameFiles => gameFiles.Key, gameFiles => gameFiles.Select(x => x)));
             }
-
-            if (searchScope is ArchiveManagerScope.Basegame)
+            
+            // mods
+            if (searchScope is ArchiveManagerScope.Mods or ArchiveManagerScope.BasegameAndMods or ArchiveManagerScope.Everywhere)
             {
-                return GetGameArchives()
+                ret.MergeRange(  GetModArchives()
                     .SelectMany(archive => archive.Files.Values)
                     .GroupBy(gameFile => gameFile.Extension)
-                    .ToDictionary(gameFiles => gameFiles.Key, gameFiles => gameFiles.Select(x => x));
+                    .ToDictionary(gameFiles => gameFiles.Key, gameFiles => gameFiles.Select(x => x)));
             }
 
-            throw new NotSupportedException(nameof(searchScope));
+            return ret;
         }
 
 
@@ -502,7 +554,17 @@ namespace WolvenKit.RED4.CR2W.Archive
         /// <inheritdoc />
         public Optional<IGameFile> Lookup(ulong hash, ArchiveManagerScope searchScope)
         {
-            if (searchScope is ArchiveManagerScope.Mods or ArchiveManagerScope.Everywhere)
+            
+            // Check project archive
+            if (searchScope is ArchiveManagerScope.LocalProject or ArchiveManagerScope.Everywhere && ProjectArchive is not null)
+            {
+                if (ProjectArchive.Files.TryGetValue(hash, out var value))
+                {
+                    return Optional<IGameFile>.ToOptional(value);
+                }
+            }
+            
+            if (searchScope is ArchiveManagerScope.Mods or ArchiveManagerScope.BasegameAndMods or ArchiveManagerScope.Everywhere)
             {
                 // first check the mod archives
                 foreach (var item in GetModArchives())
@@ -514,7 +576,7 @@ namespace WolvenKit.RED4.CR2W.Archive
                 }
             }
 
-            if (searchScope is not (ArchiveManagerScope.Basegame or ArchiveManagerScope.Everywhere))
+            if (searchScope is not (ArchiveManagerScope.Basegame or ArchiveManagerScope.BasegameAndMods or ArchiveManagerScope.Everywhere))
             {
                 return Optional<IGameFile>.None;
             }
@@ -574,12 +636,7 @@ namespace WolvenKit.RED4.CR2W.Archive
                 .Select(x => x[path] ?? x[fileHash])
                 .FirstOrDefault();
 
-            if (baseFile != null)
-            {
-                return baseFile;
-            }
-
-            return null;
+            return baseFile; // this can be null
         }
 
         public CR2WFile? GetCR2WFile(ResourcePath path, bool includeMods = true, bool includeProject = true)
