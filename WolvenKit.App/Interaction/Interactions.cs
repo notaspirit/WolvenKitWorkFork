@@ -4,6 +4,7 @@ using System.Threading.Tasks;
 using WolvenKit.App.Factories;
 using WolvenKit.App.Helpers;
 using WolvenKit.App.Models.ProjectManagement.Project;
+using WolvenKit.App.Services;
 using WolvenKit.App.ViewModels.Dialogs;
 
 namespace WolvenKit.App.Interaction;

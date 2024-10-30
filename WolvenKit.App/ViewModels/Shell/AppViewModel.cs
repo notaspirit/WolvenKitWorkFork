@@ -74,6 +74,7 @@ public partial class AppViewModel : ObservableObject/*, IAppViewModel*/
     private readonly Red4ParserService _parser;
     private readonly AppScriptService _scriptService;
     private readonly IWatcherService _watcherService;
+    private readonly ArchiveXlItemService _archiveXlItemService;
 
     // expose to view
     public ISettingsManager SettingsManager { get; init; }
@@ -99,6 +100,7 @@ public partial class AppViewModel : ObservableObject/*, IAppViewModel*/
         ITweakDBService tweakDBService,
         Red4ParserService parserService,
         IWatcherService watcherService,
+        ArchiveXlItemService archiveXlItemService,
         AppScriptService scriptService)
     {
         _documentViewmodelFactory = documentViewmodelFactory;
@@ -118,6 +120,7 @@ public partial class AppViewModel : ObservableObject/*, IAppViewModel*/
         _tweakDBService = tweakDBService;
         _parser = parserService;
         _watcherService = watcherService;
+        _archiveXlItemService = archiveXlItemService;
         _scriptService = scriptService;
 
         _fileValidationScript = _scriptService.GetScripts(ISettingsManager.GetWScriptDir()).ToList()
@@ -1152,13 +1155,17 @@ public partial class AppViewModel : ObservableObject/*, IAppViewModel*/
         return Task.CompletedTask;
     }
 
-    [RelayCommand(CanExecute = nameof(CanAddArchiveXlFiles))]
-    private void AddArchiveXlItemFiles() => AddArchiveXlFiles(true);
+    private bool CanAddAxlControlFiles() => ActiveProject is not null && !IsDialogShown;
 
-    private bool CanAddArchiveXlFiles() => ActiveProject is not null && !IsDialogShown;
+    [RelayCommand(CanExecute = nameof(CanAddAxlControlFiles))]
+    private void AddArchiveXlItemFiles() => AddAxlFiles(true);
 
-    [RelayCommand(CanExecute = nameof(CanAddArchiveXlFiles))]
-    private void AddArchiveXlFiles(bool createItemFiles = false)
+
+    [RelayCommand(CanExecute = nameof(CanAddAxlControlFiles))]
+    private void AddAxlControlFiles() => AddAxlFiles(false);
+
+
+    private void AddAxlFiles(bool createItemFiles = false)
     {
         if (ActiveProject is null)
         {
@@ -1172,31 +1179,7 @@ public partial class AppViewModel : ObservableObject/*, IAppViewModel*/
         }
 
         _watcherService.Suspend();
-        ArchiveXlItemFactory.CreateEquipmentItem(ActiveProject, item);
-        _watcherService.Resume();
-    }
-
-    [RelayCommand(CanExecute = nameof(CanAddArchiveXlFiles))]
-    private void AddArchiveXlItemFiles() => AddArchiveXlFiles(true);
-
-    private bool CanAddArchiveXlFiles() => ActiveProject is not null && !IsDialogShown;
-
-    [RelayCommand(CanExecute = nameof(CanAddArchiveXlFiles))]
-    private void AddArchiveXlFiles(bool createItemFiles = false)
-    {
-        if (ActiveProject is null)
-        {
-            throw new WolvenKitException(0x4003, "No project loaded");
-        }
-
-        var item = Interactions.ShowArchiveXlFilesView(!createItemFiles);
-        if (item is null)
-        {
-            return;
-        }
-
-        _watcherService.Suspend();
-        ArchiveXlItemFactory.CreateEquipmentItem(ActiveProject, item);
+        _archiveXlItemService.CreateEquipmentItem(ActiveProject, item);
         _watcherService.Resume();
     }
     
@@ -1207,6 +1190,7 @@ public partial class AppViewModel : ObservableObject/*, IAppViewModel*/
         {
             return;
         }
+        
 
         await Task.Run(() => OpenFromNewFileTask(file)).ContinueWith(async (_) =>
         {
@@ -1685,7 +1669,7 @@ public partial class AppViewModel : ObservableObject/*, IAppViewModel*/
     [NotifyCanExecuteChangedFor(nameof(NewFileCommand))]
     //[NotifyCanExecuteChangedFor(nameof(CloseModalCommand))]
     [NotifyCanExecuteChangedFor(nameof(CloseDialogCommand))]
-    [NotifyCanExecuteChangedFor(nameof(AddArchiveXlFilesCommand))]
+    [NotifyCanExecuteChangedFor(nameof(AddAxlControlFilesCommand))]
     private bool _isDialogShown;
 
     [ObservableProperty]
@@ -1709,7 +1693,7 @@ public partial class AppViewModel : ObservableObject/*, IAppViewModel*/
     [NotifyCanExecuteChangedFor(nameof(ImportFromEntitySpawnerCommand))]
     [NotifyCanExecuteChangedFor(nameof(RunFileValidationOnProjectCommand))]
     [NotifyCanExecuteChangedFor(nameof(ShowPropertiesCommand))]
-    [NotifyCanExecuteChangedFor(nameof(AddArchiveXlFilesCommand))]
+    [NotifyCanExecuteChangedFor(nameof(AddAxlControlFilesCommand))]
     [NotifyCanExecuteChangedFor(nameof(AddArchiveXlItemFilesCommand))]
     private Cp77Project? _activeProject;
 
