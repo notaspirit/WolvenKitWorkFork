@@ -1154,6 +1154,9 @@ public partial class AppViewModel : ObservableObject/*, IAppViewModel*/
         //});
     }
 
+    [RelayCommand(CanExecute = nameof(CanNewFile))]
+    private void NewNpc(string? _) => Interactions.ShowNpvCreationDialogue();
+
     private bool CanImportArchive(string inputDir) => ActiveProject is not null && !IsDialogShown;
 
     [RelayCommand(CanExecute = nameof(CanImportArchive))]
@@ -1202,38 +1205,18 @@ public partial class AppViewModel : ObservableObject/*, IAppViewModel*/
     private async Task OpenFromNewFile(NewFileViewModel? file)
     {
         CloseModalCommand.Execute(null);
-        if (file is null or { RequiresFilePath: true, FullPath: null })
+        if (file == null)
         {
-            return;
-        }
-
-        if (!file.RequiresFilePath)
-        {
-            RunComplexNewFileAction(file);
             return;
         }
 
         await Task.Run(() => OpenFromNewFileTask(file)).ContinueWith(async (_) =>
         {
-            if (file.FullPath is not null && File.Exists(file.FullPath))
+            if (file.FullPath is not null)
             {
                 await RequestFileOpen(file.FullPath);
             }
         });
-    }
-
-    private void RunComplexNewFileAction(NewFileViewModel file)
-    {
-        if (file.SelectedFile?.Type is null)
-        {
-            return;
-        }
-
-        // ArchiveXL stuff not implemented yet
-        if (file.SelectedFile?.Type is EWolvenKitFile.Complex_NPV)
-        {
-            Interactions.ShowNpvCreationDialogue();
-        }
     }
 
     private static async Task OpenFromNewFileTask(NewFileViewModel file)
@@ -1295,11 +1278,6 @@ public partial class AppViewModel : ObservableObject/*, IAppViewModel*/
                     writer.WriteFile(cr2W);
                 }
                 break;
-            // These should be handled by ComplexAction
-            case EWolvenKitFile.Complex_NPV:
-            case EWolvenKitFile.Complex_XL_Control:
-            case EWolvenKitFile.Complex_XL_Item:
-            // Where's this handled?
             case EWolvenKitFile.WScript:
                 throw new NotImplementedException();
             default:
@@ -1919,9 +1897,6 @@ public partial class AppViewModel : ObservableObject/*, IAppViewModel*/
             case EWolvenKitFile.ArchiveXl:
             case EWolvenKitFile.RedScript:
             case EWolvenKitFile.CETLua:
-            case EWolvenKitFile.Complex_NPV:
-            case EWolvenKitFile.Complex_XL_Control:
-            case EWolvenKitFile.Complex_XL_Item:
             default:
                 break;
         }
