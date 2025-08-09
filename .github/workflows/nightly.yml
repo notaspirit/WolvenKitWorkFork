@@ -25,7 +25,7 @@ jobs:
         name: check latest commit is less than a day
         run: |
           myvar=$(git rev-list --after="24 hours" HEAD)
-          if (test ! -z "$myvar"); then HAS_COMMITS='true'; else HAS_COMMITS='false'; fi;
+          if (test ! -z "$myvar"); then HAS_COMMITS='true'; else HAS_COMMITS='true'; fi;
           echo "$HAS_COMMITS"
           echo "should_run="$HAS_COMMITS"" >> $GITHUB_OUTPUT
 
