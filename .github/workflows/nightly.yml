@@ -142,6 +142,6 @@ jobs:
           files: |
             ${{ env.FINALOUT }}/*.zip
             ${{ env.FINALOUT }}/*.exe
-          repository: WolvenKit/WolvenKit-nightly-releases
+          repository: notaspirit/WolvenKit-nightly-releases
           token: ${{ secrets.RELEASE_TOKEN }}
           body: "This is a beta release so you may encounter bugs. Please report them.\n${{ steps.tag_version.outputs.changelog }}"
