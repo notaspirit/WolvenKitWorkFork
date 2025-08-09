@@ -40,7 +40,7 @@ jobs:
       - name: checkout
         uses: actions/checkout@v4
         with:
-          ref: dev
+          ref: feature/in-app-updater
 
       - name: Get commit
         run: |
