@@ -177,7 +177,7 @@ public class UpdateService : IUpdateService
         try
         {
             var response =
-                await _httpClient.GetAsync(@$"https://api.github.com/repos/WolvenKit/{GetRepositoryName()}/releases/latest");
+                await _httpClient.GetAsync(@$"https://api.github.com/repos/notaspirit/{GetRepositoryName()}/releases/latest");
             response.EnsureSuccessStatusCode();
             var serializedResponse = JsonConvert.DeserializeObject<MinimalGithubRelease>(await response.Content.ReadAsStringAsync());
             return serializedResponse;
