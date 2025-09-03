@@ -1,35 +1,76 @@
-name: version-bump.yml
+name: bump-version
+
 on:
   workflow_dispatch:
     inputs:
-      target_version:
-        description: "Bump Version"
+      new_version:
+        description: "New version"
         required: true
-        default: "0.0.0"
 
 jobs:
-  make-branch:
+  bump:
     runs-on: ubuntu-latest
     permissions:
       contents: write
 
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Create new branch
         run: |
-          BRANCH="version-bump-${{ github.event.inputs.target_version }}"
-
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
-          git checkout main
-
+          BRANCH="bump-version-${{ github.event.inputs.new_version }}"
           git checkout -b "$BRANCH"
 
-          echo "hello from $BRANCH" > test.txt
+      - name: Update WolvenKit.csproj
+        run: |
+          NEW_VERSION="${{ github.event.inputs.new_version }}"
+          sed -i "s|<VersionPrefix>.*</VersionPrefix>|<VersionPrefix>$NEW_VERSION</VersionPrefix>|" WolvenKit/WolvenKit.csproj
+          sed -i "s|<InformationalVersion>.*</InformationalVersion>|<InformationalVersion>$NEW_VERSION</InformationalVersion>|" WolvenKit/WolvenKit.csproj
 
-          git add test.txt
-          git commit -m "Create $BRANCH with changes"
-          git push origin "$BRANCH"
+      - name: Update WolvenKit.App.csproj
+        run: |
+          NEW_VERSION="${{ github.event.inputs.new_version }}"
+          sed -i "s|<VersionPrefix>.*</VersionPrefix>|<VersionPrefix>$NEW_VERSION</VersionPrefix>|" WolvenKit.App/WolvenKit.App.csproj
+
+      - name: Update WolvenKit.CLI.csproj
+        run: |
+          NEW_VERSION="${{ github.event.inputs.new_version }}"
+          sed -i "s|<VersionPrefix>.*</VersionPrefix>|<VersionPrefix>$NEW_VERSION</VersionPrefix>|" WolvenKit.CLI/WolvenKit.CLI.csproj
+
+      - name: Update WolvenKit.Common.csproj
+        run: |
+          NEW_VERSION="${{ github.event.inputs.new_version }}"
+          sed -i "s|<VersionPrefix>.*</VersionPrefix>|<VersionPrefix>$NEW_VERSION</VersionPrefix>|" WolvenKit.Common/WolvenKit.Common.csproj
+
+      - name: Update WolvenKit.Core.csproj
+        run: |
+          NEW_VERSION="${{ github.event.inputs.new_version }}"
+          sed -i "s|<VersionPrefix>.*</VersionPrefix>|<VersionPrefix>$NEW_VERSION</VersionPrefix>|" WolvenKit.Core/WolvenKit.Core.csproj
+
+      - name: Update WolvenKit.Modkit.csproj
+        run: |
+          NEW_VERSION="${{ github.event.inputs.new_version }}"
+          sed -i "s|<VersionPrefix>.*</VersionPrefix>|<VersionPrefix>$NEW_VERSION</VersionPrefix>|" WolvenKit.Modkit/WolvenKit.Modkit.csproj
+
+      - name: Update WolvenKit.RED4.csproj
+        run: |
+          NEW_VERSION="${{ github.event.inputs.new_version }}"
+          sed -i "s|<VersionPrefix>.*</VersionPrefix>|<VersionPrefix>$NEW_VERSION</VersionPrefix>|" WolvenKit.RED4/WolvenKit.RED4.csproj
+
+      - name: Update WolvenKit.Unpacker.csproj
+        run: |
+          NEW_VERSION="${{ github.event.inputs.new_version }}"
+          sed -i "s|<VersionPrefix>.*</VersionPrefix>|<VersionPrefix>$NEW_VERSION</VersionPrefix>|" WolvenKit.Unpacker/WolvenKit.Unpacker.csproj
+
+      - name: Update single_item_template.inkatlas.json
+        run: |
+          NEW_VERSION="${{ github.event.inputs.new_version }}"
+          sed -i "s|\"WolvenKitVersion\": \".*\"|\"WolvenKitVersion\": \"$NEW_VERSION\"|" WolvenKit/Resources/TemplateFiles/inkatlas/single_item_template.inkatlas.json
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -m "Bump version to ${{ github.event.inputs.new_version }}" || echo "No changes to commit"
+          git push origin main
