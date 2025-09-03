@@ -81,11 +81,9 @@ jobs:
           git push origin HEAD
 
       - name: Create PR
-        uses: peter-evans/create-pull-request@v6
-        with:
-            token: ${{ secrets.GITHUB_TOKEN }}
-            branch: ${{ env.BRANCH }}
-            base: main
-            title: "Bump version to ${{ github.event.inputs.new_version }}"
-            body: |
-              Bump the project version to `${{ github.event.inputs.new_version }} beep boop`.
+        run: |
+          gh pr create \
+            --base main \
+            --head "$BRANCH" \
+            --title "Bump version to ${{ github.event.inputs.new_version }}" \
+            --body "Bumps the project version to \`${{ github.event.inputs.new_version }} beep boop\`."
