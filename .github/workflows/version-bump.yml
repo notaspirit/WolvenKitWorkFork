@@ -30,7 +30,7 @@ jobs:
       - name: Update WolvenKit.App.csproj
         run: |
           NEW_VERSION="${{ github.event.inputs.new_version }}"
-          sed -i "s|<VersionPrefix>.*</VersionPrefix>|<VersionPrefix>$NEW_VERSION</VersionPrefix>|" WolvenKit.App/WolvenKit.App.csproj
+          sed -i "s|<Version>.*</Version>|<Version>$NEW_VERSION</Version>|" WolvenKit.App/WolvenKit.App.csproj
 
       - name: Update WolvenKit.CLI.csproj
         run: |
@@ -40,12 +40,12 @@ jobs:
       - name: Update WolvenKit.Common.csproj
         run: |
           NEW_VERSION="${{ github.event.inputs.new_version }}"
-          sed -i "s|<VersionPrefix>.*</VersionPrefix>|<VersionPrefix>$NEW_VERSION</VersionPrefix>|" WolvenKit.Common/WolvenKit.Common.csproj
+          sed -i "s|<Version>.*</Version>|<Version>$NEW_VERSION</Version>|" WolvenKit.Common/WolvenKit.Common.csproj
 
       - name: Update WolvenKit.Core.csproj
         run: |
           NEW_VERSION="${{ github.event.inputs.new_version }}"
-          sed -i "s|<VersionPrefix>.*</VersionPrefix>|<VersionPrefix>$NEW_VERSION</VersionPrefix>|" WolvenKit.Core/WolvenKit.Core.csproj
+          sed -i "s|<Version>.*</Version>|<Version>$NEW_VERSION</Version>|" WolvenKit.Core/WolvenKit.Core.csproj
 
       - name: Update WolvenKit.Modkit.csproj
         run: |
@@ -55,12 +55,12 @@ jobs:
       - name: Update WolvenKit.RED4.csproj
         run: |
           NEW_VERSION="${{ github.event.inputs.new_version }}"
-          sed -i "s|<VersionPrefix>.*</VersionPrefix>|<VersionPrefix>$NEW_VERSION</VersionPrefix>|" WolvenKit.RED4/WolvenKit.RED4.csproj
+          sed -i "s|<Version>.*</Version>|<Version>$NEW_VERSION</Version>|" WolvenKit.RED4/WolvenKit.RED4.csproj
 
       - name: Update WolvenKit.Unpacker.csproj
         run: |
           NEW_VERSION="${{ github.event.inputs.new_version }}"
-          sed -i "s|<VersionPrefix>.*</VersionPrefix>|<VersionPrefix>$NEW_VERSION</VersionPrefix>|" WolvenKit.Unpacker/WolvenKit.Unpacker.csproj
+          sed -i "s|<Version>.*</Version>|<Version>$NEW_VERSION</Version>|" WolvenKit.Unpacker/WolvenKit.Unpacker.csproj
 
       - name: Update single_item_template.inkatlas.json
         run: |
