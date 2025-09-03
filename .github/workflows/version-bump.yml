@@ -12,5 +12,5 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Echo input
-        run:
+        run: |
           echo "The input was: ${{ github.event.inputs.my_string }}"
