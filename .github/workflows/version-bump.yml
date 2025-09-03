@@ -2,6 +2,7 @@ name: bump-version
 
 env:
   BRANCH: bump-version-${{ github.event.inputs.new_version }}
+  GH_TOKEN: ${{ github.token }}
 
 on:
   workflow_dispatch:
