@@ -1,0 +1,16 @@
+name: version-bump.yml
+on:
+  workflow_dispatch:
+    inputs:
+      my_string:
+        description: "A string input"
+        required: true
+        default: "hello world"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Echo input
+        run:
+          echo "The input was: ${{ github.event.inputs.my_string }}"
