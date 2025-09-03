@@ -1,5 +1,8 @@
 name: bump-version
 
+env:
+  BRANCH: bump-version-${{ github.event.inputs.new_version }}
+
 on:
   workflow_dispatch:
     inputs:
@@ -18,8 +21,7 @@ jobs:
 
       - name: Create new branch
         run: |
-          BRANCH="bump-version-${{ github.event.inputs.new_version }}"
-          git checkout -b "$BRANCH"
+          git checkout -b ${{ env.BRANCH }}
 
       - name: Update WolvenKit.csproj
         run: |
