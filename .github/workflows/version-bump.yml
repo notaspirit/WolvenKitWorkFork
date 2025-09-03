@@ -2,15 +2,34 @@ name: version-bump.yml
 on:
   workflow_dispatch:
     inputs:
-      my_string:
-        description: "A string input"
+      target_version:
+        description: "Bump Version"
         required: true
-        default: "hello world"
+        default: "0.0.0"
 
 jobs:
-  test:
+  make-branch:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
     steps:
-      - name: Echo input
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Create new branch
         run: |
-          echo "The input was: ${{ github.event.inputs.my_string }}"
+          BRANCH="$version-bump-{{ github.event.inputs.target_version }}"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git checkout main
+
+          git checkout -b "$BRANCH"
+
+          echo "hello from $BRANCH" > test.txt
+
+          git add test.txt
+          git commit -m "Create $BRANCH with changes"
+          git push origin "$BRANCH"
