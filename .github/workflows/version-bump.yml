@@ -19,7 +19,7 @@ jobs:
 
       - name: Create new branch
         run: |
-          BRANCH="$version-bump-{{ github.event.inputs.target_version }}"
+          BRANCH="version-bump-${{ github.event.inputs.target_version }}"
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
