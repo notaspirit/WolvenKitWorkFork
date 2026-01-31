@@ -1,6 +1,7 @@
 var searchData=
 [
-  ['changeextension_55',['ChangeExtension',['../classScriptFunctions.html#a03619b1fc60f5d18e2a527bf5a5a7490',1,'ScriptFunctions']]],
-  ['close_56',['Close',['../classScriptDocumentWrapper.html#a57bc715febf77a3023b7d6f0e09cb865',1,'ScriptDocumentWrapper']]],
-  ['createinstanceasjson_57',['CreateInstanceAsJSON',['../classAppScriptFunctions.html#af54d766a3b49e506ea83ecdb92e838e8',1,'AppScriptFunctions']]]
+  ['changeextension_0',['ChangeExtension',['../classWolvenKit_1_1Modkit_1_1Scripting_1_1ScriptFunctions.html#a686135d3af09db93ca29a8ca5050d330',1,'WolvenKit::Modkit::Scripting::ScriptFunctions']]],
+  ['clearexportfilelookup_1',['ClearExportFileLookup',['../classWolvenKit_1_1App_1_1Scripting_1_1AppScriptFunctions.html#a6245db5aeb4455c43fba8b0fec96c721',1,'WolvenKit::App::Scripting::AppScriptFunctions']]],
+  ['close_2',['Close',['../classWolvenKit_1_1App_1_1Scripting_1_1ScriptDocumentWrapper.html#a279377c78dc9736d80e77a84d9802cd4',1,'WolvenKit::App::Scripting::ScriptDocumentWrapper']]],
+  ['createinstanceasjson_3',['CreateInstanceAsJSON',['../classWolvenKit_1_1App_1_1Scripting_1_1AppScriptFunctions.html#a774794db824b5dba44b87695cda80dc4',1,'WolvenKit::App::Scripting::AppScriptFunctions']]]
 ];

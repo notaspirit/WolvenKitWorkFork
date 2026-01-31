@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['appscriptfunctions_50',['AppScriptFunctions',['../classAppScriptFunctions.html',1,'']]]
+  ['appscriptfunctions_0',['AppScriptFunctions',['../classWolvenKit_1_1App_1_1Scripting_1_1AppScriptFunctions.html',1,'WolvenKit::App::Scripting']]]
 ];

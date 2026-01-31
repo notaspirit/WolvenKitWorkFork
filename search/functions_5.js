@@ -1,5 +1,22 @@
 var searchData=
 [
-  ['hashstring_84',['HashString',['../classAppScriptFunctions.html#a6df9f2af2ff3e8ed682278cfba52515a',1,'AppScriptFunctions']]],
-  ['hastdbid_85',['HasTDBID',['../classAppScriptFunctions.html#a020b703d1aae6f24669a61f64e244eda',1,'AppScriptFunctions']]]
+  ['gamefiletojson_0',['GameFileToJson',['../classWolvenKit_1_1Modkit_1_1Scripting_1_1ScriptFunctions.html#a6f92994083539548837a1ef69d086bd8',1,'WolvenKit::Modkit::Scripting::ScriptFunctions']]],
+  ['getactivedocument_1',['GetActiveDocument',['../classWolvenKit_1_1App_1_1Scripting_1_1AppScriptFunctions.html#a40382f124a43332743fe14ca5fa8dec4',1,'WolvenKit::App::Scripting::AppScriptFunctions']]],
+  ['getarchivefiles_2',['GetArchiveFiles',['../classWolvenKit_1_1Modkit_1_1Scripting_1_1ScriptFunctions.html#a3b736f993ebaa5658b6253366224b327',1,'WolvenKit::Modkit::Scripting::ScriptFunctions']]],
+  ['getdocuments_3',['GetDocuments',['../classWolvenKit_1_1App_1_1Scripting_1_1AppScriptFunctions.html#aa6c5e9e0ea9680be5a4a5a268dc262b8',1,'WolvenKit::App::Scripting::AppScriptFunctions']]],
+  ['getfile_4',['getfile',['../classWolvenKit_1_1App_1_1Scripting_1_1AppScriptFunctions.html#ab423d5ffd65048c7691a2adb0c6649d3',1,'WolvenKit.App.Scripting.AppScriptFunctions.GetFile(string path, OpenAs openAs)'],['../classWolvenKit_1_1App_1_1Scripting_1_1AppScriptFunctions.html#a5b585dc51e23d29c36b8503fda8fb717',1,'WolvenKit.App.Scripting.AppScriptFunctions.GetFile(ulong hash, OpenAs openAs)']]],
+  ['getfilefromarchive_5',['getfilefromarchive',['../classWolvenKit_1_1Modkit_1_1Scripting_1_1ScriptFunctions.html#a8404627e2767ef3fa468015f5899860d',1,'WolvenKit.Modkit.Scripting.ScriptFunctions.GetFileFromArchive(string path, OpenAs openAs)'],['../classWolvenKit_1_1Modkit_1_1Scripting_1_1ScriptFunctions.html#aa5b397ed2ef00c4a4b849eac1465a5e0',1,'WolvenKit.Modkit.Scripting.ScriptFunctions.GetFileFromArchive(ulong hash, OpenAs openAs)']]],
+  ['getfilefrombase_6',['getfilefrombase',['../classWolvenKit_1_1Modkit_1_1Scripting_1_1ScriptFunctions.html#acecae2b69a7f22a3cc8e29f0a9b09e3a',1,'WolvenKit.Modkit.Scripting.ScriptFunctions.GetFileFromBase(string path)'],['../classWolvenKit_1_1Modkit_1_1Scripting_1_1ScriptFunctions.html#abc5ed6eb23a26cf4a06873e65d8a58a0',1,'WolvenKit.Modkit.Scripting.ScriptFunctions.GetFileFromBase(ulong hash)']]],
+  ['getfilefromproject_7',['getfilefromproject',['../classWolvenKit_1_1App_1_1Scripting_1_1AppScriptFunctions.html#ae5385eb4292737f482efc34055cfb6d1',1,'WolvenKit.App.Scripting.AppScriptFunctions.GetFileFromProject(ulong hash, OpenAs openAs)'],['../classWolvenKit_1_1App_1_1Scripting_1_1AppScriptFunctions.html#a2dd188a930a640fb1450df6d9db6586e',1,'WolvenKit.App.Scripting.AppScriptFunctions.GetFileFromProject(string path, OpenAs openAs)']]],
+  ['getflat_8',['GetFlat',['../classWolvenKit_1_1App_1_1Scripting_1_1AppScriptFunctions.html#ad7ba980f501aec1006dab57f554ad907',1,'WolvenKit::App::Scripting::AppScriptFunctions']]],
+  ['getflats_9',['GetFlats',['../classWolvenKit_1_1App_1_1Scripting_1_1AppScriptFunctions.html#aa6018775fb4270842f65e587156fa960',1,'WolvenKit::App::Scripting::AppScriptFunctions']]],
+  ['getgamefile_10',['GetGameFile',['../classWolvenKit_1_1App_1_1Scripting_1_1ScriptDocumentWrapper.html#a0c4cb96cc91f9f4cff9a2658df1dd5ac',1,'WolvenKit::App::Scripting::ScriptDocumentWrapper']]],
+  ['getgrouptag_11',['GetGroupTag',['../classWolvenKit_1_1App_1_1Scripting_1_1AppScriptFunctions.html#a11a2afb56695385373cbf57eccf658fb',1,'WolvenKit::App::Scripting::AppScriptFunctions']]],
+  ['getgrouptags_12',['GetGroupTags',['../classWolvenKit_1_1App_1_1Scripting_1_1AppScriptFunctions.html#aeda49ce6aeb7c325b1de54c61939af5f',1,'WolvenKit::App::Scripting::AppScriptFunctions']]],
+  ['getprojectfiles_13',['GetProjectFiles',['../classWolvenKit_1_1App_1_1Scripting_1_1AppScriptFunctions.html#ad893f05a1036c6c66af1b140cbae421f',1,'WolvenKit::App::Scripting::AppScriptFunctions']]],
+  ['getqueries_14',['GetQueries',['../classWolvenKit_1_1App_1_1Scripting_1_1AppScriptFunctions.html#a7122834ffa275d1eef6699db7669c985',1,'WolvenKit::App::Scripting::AppScriptFunctions']]],
+  ['getquery_15',['GetQuery',['../classWolvenKit_1_1App_1_1Scripting_1_1AppScriptFunctions.html#a74534bf51e7a8d6c021ab46fd388fdc0',1,'WolvenKit::App::Scripting::AppScriptFunctions']]],
+  ['getrecord_16',['GetRecord',['../classWolvenKit_1_1App_1_1Scripting_1_1AppScriptFunctions.html#a5c28c89c900ca27072f57a96ed901622',1,'WolvenKit::App::Scripting::AppScriptFunctions']]],
+  ['getrecords_17',['GetRecords',['../classWolvenKit_1_1App_1_1Scripting_1_1AppScriptFunctions.html#afa2efbb87f73884a4e9a93a37d083c6a',1,'WolvenKit::App::Scripting::AppScriptFunctions']]],
+  ['gettdbidpath_18',['GetTDBIDPath',['../classWolvenKit_1_1App_1_1Scripting_1_1AppScriptFunctions.html#ab10d1382e3899b3f16a807eacef3e75b',1,'WolvenKit::App::Scripting::AppScriptFunctions']]]
 ];
