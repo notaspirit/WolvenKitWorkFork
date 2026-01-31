@@ -20,7 +20,7 @@ jobs:
 
       # 3️⃣ Run Doxygen
       - name: Run Doxygen
-        run: doxygen Doxyfile
+        run: doxygen Doxyfile_scripting
 
       # 4️⃣ Upload JSON artifact
       - name: Upload JSON
