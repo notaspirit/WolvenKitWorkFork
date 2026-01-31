@@ -1,0 +1,30 @@
+name: Generate Doxygen JSON
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  doxygen-json:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1️⃣ Check out the repository
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 2️⃣ Install Doxygen
+      - name: Install Doxygen
+        run: sudo apt-get update && sudo apt-get install -y doxygen
+
+      # 3️⃣ Run Doxygen
+      - name: Run Doxygen
+        run: doxygen Doxyfile
+
+      # 4️⃣ Upload JSON artifact
+      - name: Upload JSON
+        uses: actions/upload-artifact@v3
+        with:
+          name: doxygen-json
+          path: docs/json/
