@@ -23,8 +23,19 @@ jobs:
         run: doxygen Doxyfile_scripting
 
       # 4️⃣ Upload JSON artifact
-      - name: Upload JSON
+      - name: Upload XML
         uses: actions/upload-artifact@v4
         with:
-          name: doxygen-json
+          name: doxygen-xml
           path: docs/xml/
+
+      - name: Generate TS definitions
+        run: |
+          mkdir -p out
+          python tools/doxygen_xml_to_ts.py docs/xml out/wolvenkit.d.ts
+      
+      - name: Upload TS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: wolvenkit-ts-defs
+          path: out/*.d.ts
