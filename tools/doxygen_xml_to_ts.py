@@ -3,17 +3,31 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 from collections import defaultdict
 
-CSharpToTS = {
-    "string": "string",
+CSHARP_TO_TS = {
+    "void": "void",
+    "bool": "boolean",
+    "byte": "number",
+    "sbyte": "number",
+    "short": "number",
+    "ushort": "number",
     "int": "number",
+    "uint": "number",
     "long": "number",
+    "ulong": "number",
     "float": "number",
     "double": "number",
-    "bool": "boolean",
+    "decimal": "number",
+    "string": "string",
     "object": "any",
-    "object?": "any",
-    "void": "void",
+    "dynamic": "any",
+    "ScriptObject": "any",
+    "ScriptFunctionWrapper": "any",
 }
+
+def clean_text(elem):
+    if elem is None:
+        return ""
+    return " ".join(elem.itertext()).strip()
 
 def map_type(t: str) -> str:
     if not t:
@@ -26,7 +40,7 @@ def map_type(t: str) -> str:
     is_nullable = t.endswith("?")
 
     base = t.replace("[]", "").replace("?", "")
-    ts = CSharpToTS.get(base, base)
+    ts = CSHARP_TO_TS.get(base, base)
 
     if is_array:
         ts += "[]"
@@ -43,11 +57,7 @@ def parse_class(xml_path: Path):
     if compound is None or compound.attrib.get("kind") != "class":
         return None
 
-    fq = compound.findtext("compoundname")
-    parts = fq.split("::")
-
-    namespace = ".".join(parts[:-1])
-    class_name = parts[-1]
+    class_name = compound.findtext("compoundname").split("::")[-1]
 
     methods = defaultdict(list)
 
@@ -58,58 +68,90 @@ def parse_class(xml_path: Path):
         for m in section.findall("memberdef"):
             name = m.findtext("name")
 
-            # skip constructors
             if name == class_name:
-                continue
+                continue  # constructor
 
             ret = map_type(m.findtext("type"))
+
+            # docs
+            summary = clean_text(m.find("briefdescription")) or clean_text(m.find("detaileddescription"))
+            param_docs = {}
+            returns_doc = ""
+
+            deta = m.find("detaileddescription")
+            if deta is not None:
+                for p in deta.findall(".//parameteritem"):
+                    pname = clean_text(p.find(".//parametername"))
+                    pdesc = clean_text(p.find(".//parameterdescription"))
+                    if pname:
+                        param_docs[pname] = pdesc
+
+                r = deta.find(".//simplesect[@kind='return']")
+                if r is not None:
+                    returns_doc = clean_text(r)
+
             params = []
+            jsdoc_params = []
 
             for p in m.findall("param"):
                 raw_type = p.findtext("type") or "object"
-                name_p = p.findtext("declname") or "arg"
-
+                pname = p.findtext("declname") or "arg"
                 ts_type = map_type(raw_type)
 
                 if raw_type.startswith("params"):
-                    params.append(f"...{name_p}: any[]")
+                    params.append(f"...{pname}: any[]")
                 elif ts_type.endswith("| undefined"):
-                    params.append(f"{name_p}?: {ts_type.replace(' | undefined', '')}")
+                    params.append(f"{pname}?: {ts_type.replace(' | undefined', '')}")
                 else:
-                    params.append(f"{name_p}: {ts_type}")
+                    params.append(f"{pname}: {ts_type}")
 
-            methods[name].append((params, ret))
+                if pname in param_docs and param_docs[pname]:
+                    jsdoc_params.append(f" * @param {pname} {param_docs[pname]}")
 
-    return namespace, class_name, methods
+            methods[name].append({
+                "params": params,
+                "return": ret,
+                "summary": summary,
+                "jsdoc_params": jsdoc_params,
+                "returns_doc": returns_doc,
+            })
+
+    return class_name, methods
 
 def main(xml_dir: Path, out_file: Path):
-    namespaces = defaultdict(lambda: defaultdict(dict))
+    classes = {}
 
     for xml in xml_dir.glob("class*.xml"):
         parsed = parse_class(xml)
         if not parsed:
             continue
-
-        namespace, class_name, methods = parsed
-        namespaces[namespace][class_name] = methods
+        class_name, methods = parsed
+        classes[class_name] = methods
 
     lines = []
+    lines.append("declare namespace wkit {")
 
-    for namespace, classes in sorted(namespaces.items()):
-        lines.append(f"declare namespace {namespace} {{")
+    for class_name, methods in sorted(classes.items()):
+        lines.append(f"  interface {class_name} {{")
 
-        for class_name, methods in classes.items():
-            lines.append(f"  interface {class_name} {{")
+        for name, overloads in methods.items():
+            for o in overloads:
+                if o["summary"] or o["jsdoc_params"] or o["returns_doc"]:
+                    lines.append("    /**")
+                    if o["summary"]:
+                        lines.append(f"     * {o['summary']}")
+                    for p in o["jsdoc_params"]:
+                        lines.append(f"     {p}")
+                    if o["returns_doc"]:
+                        lines.append(f"     * @returns {o['returns_doc']}")
+                    lines.append("     */")
 
-            for name, overloads in methods.items():
-                for params, ret in overloads:
-                    sig = ", ".join(params)
-                    lines.append(f"    {name}({sig}): {ret};")
+                sig = ", ".join(o["params"])
+                lines.append(f"    {name}({sig}): {o['return']};")
 
-            lines.append("  }")
+        lines.append("  }")
 
-        lines.append("}")
-        lines.append("")
+    lines.append("}")
 
     out_file.write_text("\n".join(lines), encoding="utf-8")
 
