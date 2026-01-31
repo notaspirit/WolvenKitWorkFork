@@ -120,10 +120,11 @@ namespace WolvenKit.Views.Tools
                     return (viewModel.Files, viewModel.MoveToPath);
                 };
 
-                Interactions.ShowBrokenReferencesList = (args) =>
+                Interactions.ShowDictionaryAsCopyableList = (args) =>
                 {
                     var comparer = new FilePathComparer();
-                    var dialog = new ShowBrokenReferencesDialogView(args.Item1, args.Item2);
+                    var dialog =
+                        new ShowDictionaryForCopyDialogView(args.title, args.text, args.list, args.isExperimental);
                     return dialog.ShowDialog(Application.Current.MainWindow) == true;
                 };
 
@@ -146,6 +147,16 @@ namespace WolvenKit.Views.Tools
                     }
 
                     return innerVm.Text;
+                };
+
+                Interactions.AskForSceneInput = (parameters) =>
+                {
+                    var (title, primaryLabel, primaryDefault, showSecondary, secondaryLabel, checkboxText, 
+                         showDropdown, dropdownLabel, dropdownOptions, defaultDropdownValue) = parameters;
+                    var dialog = new SceneInputDialogView(title, primaryLabel, primaryDefault, showSecondary, 
+                        secondaryLabel, checkboxText, showDropdown, dropdownLabel, dropdownOptions, defaultDropdownValue);
+                    var result = dialog.ShowDialog();
+                    return result == true ? (dialog.PrimaryInput, dialog.EnableSecondaryInput, dialog.SecondaryInput, dialog.DropdownValue) : (null, false, null, null);
                 };
 
                 Interactions.AskForFolderPathInput = (args) =>

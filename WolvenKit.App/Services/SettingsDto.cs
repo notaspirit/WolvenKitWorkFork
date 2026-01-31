@@ -86,6 +86,7 @@ public class SettingsDto : ISettingsDto
         ShowVerboseLogOutput = settings.ShowVerboseLogOutput;
         IsDiscordRPCEnabled = settings.IsDiscordRPCEnabled;
         ArchiveNamesExcludeFromScan = settings.ArchiveNamesExcludeFromScan;
+        UseAuthorNameAsSubfolder = settings.UseAuthorNameAsSubfolder;
 
         MigrateSettings();
     }
@@ -138,7 +139,7 @@ public class SettingsDto : ISettingsDto
     #region General
 
     public bool AutoUpdateOnStartup { get; set; } = true;
-    public bool AlwaysAskBeforeUpdating { get; set; }
+    public bool AlwaysAskBeforeUpdating { get; set; } = true;
     public EUpdateChannel UpdateChannel { get; set; }
     public bool ShowGuidedTour { get; set; }
     public string? ThemeAccentString { get; set; }
@@ -163,6 +164,7 @@ public class SettingsDto : ISettingsDto
     public bool ReopenFiles { get; set; } = true;
     public bool ShowVerboseLogOutput { get; set; }
     public bool IsDiscordRPCEnabled { get; set; } = true;
+    public bool UseAuthorNameAsSubfolder { get; set; }
     public string ArchiveNamesExcludeFromScan { get; set; } = "basegame_AMM_Props";
 
     #endregion
@@ -229,6 +231,7 @@ public class SettingsDto : ISettingsDto
         settingsManager.NumFilesToReopen = NumFilesToReopen;
         settingsManager.ShowVerboseLogOutput = ShowVerboseLogOutput;
         settingsManager.IsDiscordRPCEnabled = IsDiscordRPCEnabled;
+        settingsManager.UseAuthorNameAsSubfolder = UseAuthorNameAsSubfolder;
         settingsManager.ArchiveNamesExcludeFromScan = ArchiveNamesExcludeFromScan;
 
         return settingsManager;

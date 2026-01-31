@@ -302,7 +302,7 @@ namespace WolvenKit.Modkit.RED4
 
             // https://github.com/WolvenKit/WolvenKit/issues/1870
             rendBlob.Header.OpacityMicromaps.Clear();
-            
+
             var originalRig = args.Rig?.FirstOrDefault();
 
             if (File.Exists(Path.ChangeExtension(inGltfFile.FullName, ".Material.json")) && (args.ImportMaterialOnly || args.ImportMaterials))
@@ -399,13 +399,13 @@ namespace WolvenKit.Modkit.RED4
             }
 
             // GarmentSupport not accounted here. Might be an issue?
-            // TODO: https://github.com/WolvenKit/WolvenKit/issues/1504 
+            // TODO: https://github.com/WolvenKit/WolvenKit/issues/1504
             meshBlob.BoundingBox.Min = new Vector4 { X = min.X, Y = min.Y, Z = min.Z, W = 1f };
             meshBlob.BoundingBox.Max = new Vector4 { X = max.X, Y = max.Y, Z = max.Z, W = 1f };
 
             var quantScale = new Vec4((max.X - min.X) / 2, (max.Y - min.Y) / 2, (max.Z - min.Z) / 2, 0);
             var quantTrans = new Vec4((max.X + min.X) / 2, (max.Y + min.Y) / 2, (max.Z + min.Z) / 2, 1);
-            
+
 
             RawArmature? incomingJoints = null;
             RawArmature? existingJoints = null;
@@ -1073,48 +1073,46 @@ namespace WolvenKit.Modkit.RED4
                 }
             }
 
-            // dependent RenderLOD's removal and addition
             if (blob.Header.RenderLODs is not null)
             {
-                blob.Header.RenderLODs.Clear();
+                if (blob.Header.RenderLODs.Count > info.LODLvl.Distinct().Count())
+                {
+                    blob.Header.RenderLODs = new CArray<CFloat> (blob.Header.RenderLODs.Take(info.LODLvl.Distinct().Count()).ToList());
+                }
 
-                blob.Header.RenderLODs.Add(0f);
-                if (info.LODLvl.ToList().Contains(2))
+                while (blob.Header.RenderLODs.Count < info.LODLvl.Distinct().Count())
                 {
-                    blob.Header.RenderLODs.Add(3f);
-                }
-                if (info.LODLvl.ToList().Contains(4))
-                {
-                    blob.Header.RenderLODs.Add(6f);
-                }
-                if (info.LODLvl.ToList().Contains(8))
-                {
-                    blob.Header.RenderLODs.Add(9f);
+                    if (blob.Header.RenderLODs.Count == 0)
+                    {
+                        blob.Header.RenderLODs.Add(0f);
+                    }
+                    else
+                    {
+                        blob.Header.RenderLODs.Add(blob.Header.RenderLODs.Max() * 2f);
+                    }
                 }
             }
-            if (cr2w.RootChunk is CMesh cMeshBlob)
+            if (cr2w.RootChunk is CMesh { LodLevelInfo: not null } cMeshBlob)
             {
-                if (cMeshBlob.LodLevelInfo is not null)
+                if (cMeshBlob.LodLevelInfo.Count > info.LODLvl.Distinct().Count())
                 {
-                    cMeshBlob.LodLevelInfo.Clear();
+                    cMeshBlob.LodLevelInfo = new CArray<CFloat> (cMeshBlob.LodLevelInfo.Take(info.LODLvl.Distinct().Count()).ToList());
+                }
 
-                    cMeshBlob.LodLevelInfo.Add(0f);
-                    if (info.LODLvl.ToList().Contains(2))
+                while (cMeshBlob.LodLevelInfo.Count < info.LODLvl.Distinct().Count())
+                {
+                    if (cMeshBlob.LodLevelInfo.Count == 0)
                     {
-                        cMeshBlob.LodLevelInfo.Add(3f);
+                        cMeshBlob.LodLevelInfo.Add(0f);
                     }
-                    if (info.LODLvl.ToList().Contains(4))
+                    else
                     {
-                        cMeshBlob.LodLevelInfo.Add(6f);
-                    }
-                    if (info.LODLvl.ToList().Contains(8))
-                    {
-                        cMeshBlob.LodLevelInfo.Add(9f);
+                        cMeshBlob.LodLevelInfo.Add(cMeshBlob.LodLevelInfo.Max() * 2f);
                     }
                 }
             }
 
-            //source mesh renderMasks for updation 
+            //source mesh renderMasks for updation
             var renderMasks = blob.Header.RenderChunkInfos.Select(s => s.RenderMask).ToList();
 
             // removing existing rendChunks
@@ -1442,6 +1440,7 @@ namespace WolvenKit.Modkit.RED4
                 _ => throw new ArgumentOutOfRangeException(nameof(type), type, null)
             };
 
+        private const string s_gltfError = "One or more geometry entries in GLTF";
         private static void VerifyGLTF(ModelRoot model, GltfImportArgs args)
         {
             if (model.LogicalMeshes.Count < 1)
@@ -1465,26 +1464,28 @@ namespace WolvenKit.Modkit.RED4
                 .Distinct()
                 .Select(x => uint.Parse(x!))
                 .ToList();
-            
+
             foreach (var m in model.LogicalMeshes)
             {
                 var accessors = m.Primitives[0].VertexAccessors.Keys.ToList();
 
                 if (!accessors.Contains("POSITION"))
                 {
-                    throw new Exception("One or more Geometry in provided GLTF doesn't contain Vertices");
+                    throw new InvalidDataException($"{s_gltfError} do not contain vertices.");
                 }
                 if (!accessors.Contains("NORMAL"))
                 {
-                    throw new Exception("One or more Geometry in provided GLTF doesn't contain Normals data. Normals must be included within glTF files.");
+                    throw new InvalidDataException($"{s_gltfError} do not contain Normals data.");
                 }
                 if (!accessors.Contains("TANGENT"))
                 {
-                    throw new Exception("One or more Geometry in provided GLTF doesn't contain Tangents data. Tangents must be included within glTF files.");
+                    throw new InvalidDataException(
+                        $"{s_gltfError} do not contain Tangents data. Make sure to triangulate your mesh!");
                 }
                 if (m.Primitives[0].GetIndices().ToList().Count < 3)
                 {
-                    throw new Exception("One or more Geometry in provided GLTF doesn't contain any Triangle primitives");
+                    throw new InvalidDataException(
+                        $"{s_gltfError} contain less than 3 vertices. Please import at least a triangle!");
                 }
                 var name = m.Name;
                 uint lod = 0;
@@ -1500,7 +1501,7 @@ namespace WolvenKit.Modkit.RED4
                         }
 
                         if (lod is not 1 and not 2 and not 4 and not 8
-                            && (lod is not 0 && !lodsFromMeshNames.Contains(lod))) 
+                            && (lod is not 0 && !lodsFromMeshNames.Contains(lod)))
                         {
                             throw new Exception("Invalid Geometry/sub mesh name: " + name + " , Character after \"LOD_\"  should be 1 or 2 or 4 or 8, Representing the Level of Detail (LOD) of the submesh.");
                         }
@@ -1532,8 +1533,8 @@ namespace WolvenKit.Modkit.RED4
                 .Distinct()
                 .Select(x => uint.Parse(x!))
                 .ToList();
-            
-            
+
+
             var lodLvl = new uint[meshes.Count];
             for (var i = 0; i < meshes.Count; i++)
             {
@@ -1910,7 +1911,7 @@ namespace WolvenKit.Modkit.RED4
                 _loggerService.Warning("Garment support is enabled, but the model doesn't contain any morph data. Please ensure all meshes have garment morph data before enabling garment support. Skipping GS Parameters!");
                 return;
             }
-                
+
             // Not sure if valid or not. Parameters where removed before, so I kept it this way. Remove below if needed - Seb E. Roth
             if (missingMorphData.Count > 0)
             {

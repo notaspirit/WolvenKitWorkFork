@@ -207,7 +207,6 @@ namespace WolvenKit.Views.Documents
                 KeyDown -= OnKeyDown;
                 
                 _disposed = true;
-                Locator.Current.GetService<ILoggerService>()?.Info("[QuestPhaseGraphView] View disposed successfully - all resources cleaned up");
             }
         }
 
@@ -1084,6 +1083,44 @@ namespace WolvenKit.Views.Documents
                 {
                     currentGraph.DuplicateNode(selectedNode);
                     e.Handled = true;
+                }
+            }
+
+            // Shortcut: Ctrl+C to copy currently selected node
+            if (e.Key == Key.C && Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
+            {
+                // Don't handle copy if user is editing text
+                if (IsTextEditingControlFocused())
+                    return;
+
+                var selectedNode = NodeSelectionService.Instance.SelectedNode;
+                if (selectedNode != null)
+                {
+                    GraphClipboardManager.CopyNode(selectedNode, currentGraph.GraphType);
+                    e.Handled = true;
+                }
+            }
+
+            // Shortcut: Ctrl+V to paste node from clipboard
+            if (e.Key == Key.V && Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
+            {
+                // Don't handle paste if user is editing text
+                if (IsTextEditingControlFocused())
+                    return;
+
+                if (GraphClipboardManager.CanPaste(currentGraph.GraphType))
+                {
+                    var copiedData = GraphClipboardManager.GetCopiedData();
+                    if (copiedData != null && QuestPhaseGraphEditor?.Editor != null)
+                    {
+                        // Paste at viewport center
+                        var viewportCenter = new System.Windows.Point(
+                            QuestPhaseGraphEditor.Editor.ViewportLocation.X + (QuestPhaseGraphEditor.Editor.ViewportSize.Width / 2),
+                            QuestPhaseGraphEditor.Editor.ViewportLocation.Y + (QuestPhaseGraphEditor.Editor.ViewportSize.Height / 2)
+                        );
+                        currentGraph.PasteNode(copiedData, viewportCenter);
+                        e.Handled = true;
+                    }
                 }
             }
 

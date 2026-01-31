@@ -1,9 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Drawing.Imaging;
 using System.IO;
 using System.Linq;
 using WolvenKit.App.Models.ProjectManagement.Project;
+using WolvenKit.Core.Exceptions;
 using WolvenKit.Interfaces.Extensions;
 using WolvenKit.RED4.Archive.CR2W;
 using WolvenKit.RED4.Types;
@@ -32,9 +34,57 @@ public static class InkatlasImageGenerator
         Directory.CreateDirectory(absoluteSourcePath);
 
         var cr2WFile = new CR2WFile() { RootChunk = inkatlas };
-        cr2WTools.WriteCr2W(cr2WFile, Path.Combine(absoluteSourcePath, $"{atlasFileName}.inkatlas"));
+        cr2WTools.WriteCr2W(cr2WFile,
+            Path.Combine(absoluteSourcePath, $"{atlasFileName.Replace(".inkatlas", "")}.inkatlas"));
     }
 
+
+    public static void GenerateDummyIcons(string folderPath, string prefix, string[] variants)
+    {
+        Directory.CreateDirectory(folderPath);
+        try
+        {
+            foreach (var file in Directory.GetFiles(folderPath))
+            {
+                File.Delete(file);
+            }
+        }
+        catch
+        {
+            // don't delete, we'll have extra items
+        }
+
+        foreach (var variant in variants)
+        {
+            var fileName = Path.Combine(folderPath, $"{prefix}{variant}.png");
+
+
+            using var bmp = new Bitmap(160, 160);
+            using var g = Graphics.FromImage(bmp);
+
+            // Use a simpler font constructor and ensure high quality rendering
+            using var font = new Font("Arial", 14, FontStyle.Bold); // Simplified font creation
+            using var brush = new SolidBrush(Color.Black); // Use SolidBrush instead of Brushes.Black
+            using var stringFormat = new StringFormat()
+            {
+                Alignment = StringAlignment.Center, LineAlignment = StringAlignment.Center
+            };
+
+            // Clear background white
+            g.Clear(Color.White);
+
+
+            // Set high quality rendering
+            g.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+            g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
+
+            // Draw the text centered using StringFormat
+            g.DrawString(variant, font, brush, new RectangleF(0, 0, bmp.Width, bmp.Height), stringFormat);
+
+            // Save as PNG
+            bmp.Save(fileName, ImageFormat.Png);
+        }
+    }
 
     private static List<AtlasPart> CreateAtlasImages(string pngFolder, string relativeSourcePath, string atlasFileName,
         Cp77Project activeProject, int tileWidth, int tileHeight)
@@ -99,13 +149,13 @@ public static class InkatlasImageGenerator
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"Error loading image {file}: {ex.Message}");
+                throw new WolvenKitException(0, $"Error loading image {file}: {ex.Message}");
             }
         }
 
         if (images.Count == 0)
         {
-            throw new InvalidOperationException("No valid PNG files could be loaded.");
+            throw new WolvenKitException(0, $"Failed to load PNG data from a file in {pngFolder}");
         }
 
         // Calculate atlas dimensions
@@ -191,11 +241,6 @@ public static class InkatlasImageGenerator
         foreach (var imgData in images)
         {
             imgData.Image.Dispose();
-        }
-
-        if (parts.Count == 1)
-        {
-            parts[0].Name = "icon";
         }
 
         return parts;

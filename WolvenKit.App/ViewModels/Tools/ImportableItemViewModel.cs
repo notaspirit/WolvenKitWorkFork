@@ -1,7 +1,9 @@
-﻿using System;
+using System;
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
+using System.Linq;
 using WolvenKit.App.Services;
 using WolvenKit.Common;
 using WolvenKit.Common.FNV1A;
@@ -14,27 +16,20 @@ namespace WolvenKit.App.ViewModels.Tools;
 
 public class ImportableItemViewModel : ImportExportItemViewModel
 {
-    public ImportableItemViewModel(string fileName, IArchiveManager archiveManager, IProjectManager projectManager,
-        Red4ParserService parserService)
-        : base(fileName, DecideImportOptions(fileName, archiveManager, projectManager, parserService)) =>
-        Properties.PropertyChanged += delegate(object? _, PropertyChangedEventArgs args)
+    public ImportableItemViewModel(string fileName, IArchiveManager archiveManager, IProjectManager projectManager, Red4ParserService parserService)
+        : base(fileName, DecideImportOptions(fileName, archiveManager, projectManager, parserService))
+    {
+    }
+
+    protected override void Properties_PropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(XbmImportArgs.TextureGroup) && Properties is XbmImportArgs importArgs)
         {
-            OnPropertyChanged(nameof(Properties));
+            SetProperties(CommonFunctions.TextureSetupFromTextureGroup(importArgs.TextureGroup));
+        }
 
-            if (args.PropertyName != nameof(XbmImportArgs.TextureGroup) || Properties is not XbmImportArgs importArgs)
-            {
-                return;
-            }
-
-            // when manually changing texture group, recalculate values
-            // IsGamma, RawFormat, Compression, GenerateMipMaps, IsStreamable
-            var propArgs = CommonFunctions.TextureSetupFromTextureGroup(importArgs.TextureGroup);
-            importArgs.IsGamma = propArgs.IsGamma;
-            importArgs.RawFormat = propArgs.RawFormat;
-            importArgs.Compression = propArgs.Compression;
-            importArgs.GenerateMipMaps = propArgs.GenerateMipMaps;
-            importArgs.IsStreamable = propArgs.IsStreamable;
-        };
+        base.Properties_PropertyChanged(sender, e);
+    }
 
     private static ImportArgs DecideImportOptions(string fileName, IArchiveManager archiveManager, IProjectManager projectManager, Red4ParserService parserService)
     {
@@ -66,9 +61,11 @@ public class ImportableItemViewModel : ImportExportItemViewModel
                 or ERawFileFormat.gltf
                 => new GltfImportArgs()
                 {
-                    ImportFormat = formatFromFilename ?? GltfImportAsFormat.Mesh,
                     // Mesh won't have an internal extension
-                    ImportGarmentSupport = formatFromFilename is null or GltfImportAsFormat.MeshWithRig 
+                    ImportFormat = formatFromFilename ?? GltfImportAsFormat.Mesh,
+                    // Garment support: disable for vehicles, weapons, effects etc
+                    ImportGarmentSupport = ShouldHaveGarmentSupport(fileName),
+                    IgnoreGarmentSupportUVParam = ShouldHaveGarmentSupport(fileName),
                 },
 
             // common import
@@ -83,6 +80,7 @@ public class ImportableItemViewModel : ImportExportItemViewModel
 
             _ => throw new ArgumentOutOfRangeException(nameof(fileName), $"Couldn't import {nameof(rawFileFormat)}"),
         };
+
     }
 
     public static XbmImportArgs LoadXbmDefaultSettings(string fileName)
@@ -105,7 +103,7 @@ public class ImportableItemViewModel : ImportExportItemViewModel
         {
             imageCompression = Enums.ETextureCompression.TCM_Normalmap;
         }
-        
+
         // get the format again, cos CDPR
         // load and, if needed, decompress file
         var image = RedImage.LoadFromFile(fileName);
@@ -179,4 +177,19 @@ public class ImportableItemViewModel : ImportExportItemViewModel
             return false;
         }
     }
+
+    /// <summary>
+    /// If any of the substrings below are in a file path, disable garment support by default
+    /// </summary>
+    private static readonly List<string> s_partialsToDisableGarmentSupport =
+    [
+        "vehicle",
+        "weapon",
+        "world",
+        "effect",
+        "particle",
+    ];
+
+    private static bool ShouldHaveGarmentSupport(string relativePath) =>
+        !s_partialsToDisableGarmentSupport.Any(relativePath.Contains);
 }

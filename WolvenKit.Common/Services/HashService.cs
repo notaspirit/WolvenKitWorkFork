@@ -32,33 +32,64 @@ namespace WolvenKit.Common.Services
         private Dictionary<ulong, string> _missing = new();
 
         private volatile bool _isLoaded;
+        private readonly TaskCompletionSource _loader = new();
 
-        public bool IsLoaded => _isLoaded;
+        public Task Loaded => _loader.Task;
 
         #endregion Fields
+
+        #region Constructors
+
+        public HashService() : this(true)
+        {
+        }
+
+        public HashService(bool autoLoad)
+        {
+            if (autoLoad)
+            {
+                Load();
+            }
+        }
+
+        #endregion Constructors
 
         #region Methods
 
         public void Load()
         {
-            var hashesMemory = DecompressEmbeddedFile(s_used);
-            ReadHashes(hashesMemory.GetStream());
+            if (_isLoaded)
+            {
+                return;
+            }
 
-            hashesMemory.Dispose();
+            try
+            {
+                var hashesMemory = DecompressEmbeddedFile(s_used);
+                ReadHashes(hashesMemory.GetStream());
 
-            var nodeRefsMemory = DecompressEmbeddedFile(s_nodeRefs);
-            ReadNodeRefs(nodeRefsMemory.GetStream());
+                hashesMemory.Dispose();
 
-            nodeRefsMemory.Dispose();
+                var nodeRefsMemory = DecompressEmbeddedFile(s_nodeRefs);
+                ReadNodeRefs(nodeRefsMemory.GetStream());
 
-            var tweakNamesMemory = DecompressEmbeddedFile(s_tweakDbStr);
-            ReadTweakNames(tweakNamesMemory.GetStream());
+                nodeRefsMemory.Dispose();
 
-            tweakNamesMemory.Dispose();
+                var tweakNamesMemory = DecompressEmbeddedFile(s_tweakDbStr);
+                ReadTweakNames(tweakNamesMemory.GetStream());
 
-            LoadMissingHashes();
+                tweakNamesMemory.Dispose();
 
-            _isLoaded = true;
+                LoadMissingHashes();
+
+                _isLoaded = true;
+                _loader.SetResult();
+            }
+            catch (Exception e)
+            {
+                _loader.SetException(e);
+                throw;
+            }
         }
 
         public IEnumerable<ulong> GetAllHashes() => _hashes.Keys;

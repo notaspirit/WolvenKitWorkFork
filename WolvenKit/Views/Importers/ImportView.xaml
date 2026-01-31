@@ -307,6 +307,7 @@
                     EnableGrouping="True"
                     PropertyExpandMode="NestedMode"
                     ReadOnlyBackground="{DynamicResource ContentBackgroundAlt}"
+                    ValueChanged="OverlayPropertyGrid_OnValueChanged"
                     SearchBoxVisibility="Hidden"
                     SortDirection="{x:Null}" />
             </Grid>

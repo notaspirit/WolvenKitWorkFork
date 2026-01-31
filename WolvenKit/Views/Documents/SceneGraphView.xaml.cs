@@ -529,7 +529,7 @@ namespace WolvenKit.Views.Documents
             if (e.Key == Key.Delete)
             {
                 // Don't handle delete key if user is editing text
-                if (IsTextEditingControlFocused())
+                if (IsEditingContextActive())
                     return;
 
                 // Use SelectedNodes from underlying GraphEditor
@@ -573,6 +573,44 @@ namespace WolvenKit.Views.Documents
                 }
             }
 
+            // Shortcut: Ctrl+C to copy currently selected node
+            if (e.Key == Key.C && Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
+            {
+                // Don't handle copy if user is editing text
+                if (IsEditingContextActive())
+                    return;
+
+                var selectedNode = NodeSelectionService.Instance.SelectedNode;
+                if (selectedNode != null)
+                {
+                    GraphClipboardManager.CopyNode(selectedNode, viewModel.MainGraph.GraphType);
+                    e.Handled = true;
+                }
+            }
+
+            // Shortcut: Ctrl+V to paste node from clipboard
+            if (e.Key == Key.V && Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
+            {
+                // Don't handle paste if user is editing text
+                if (IsEditingContextActive())
+                    return;
+
+                if (GraphClipboardManager.CanPaste(viewModel.MainGraph.GraphType))
+                {
+                    var copiedData = GraphClipboardManager.GetCopiedData();
+                    if (copiedData != null && SceneGraphEditor?.Editor != null)
+                    {
+                        // Paste at viewport center
+                        var viewportCenter = new System.Windows.Point(
+                            SceneGraphEditor.Editor.ViewportLocation.X + (SceneGraphEditor.Editor.ViewportSize.Width / 2),
+                            SceneGraphEditor.Editor.ViewportLocation.Y + (SceneGraphEditor.Editor.ViewportSize.Height / 2)
+                        );
+                        viewModel.MainGraph.PasteNode(copiedData, viewportCenter);
+                        e.Handled = true;
+                    }
+                }
+            }
+
             // Shortcut: Ctrl+N to open new node dialog
             if (e.Key == Key.N && Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
             {
@@ -592,7 +630,7 @@ namespace WolvenKit.Views.Documents
             if (e.Key is Key.Left or Key.Right or Key.Up or Key.Down)
             {
                 // Don't handle arrow keys if user is editing text
-                if (IsTextEditingControlFocused())
+                if (IsEditingContextActive())
                     return;
                 
                 var currentNode = NodeSelectionService.Instance.SelectedNode;
@@ -713,18 +751,39 @@ namespace WolvenKit.Views.Documents
         }
 
         /// <summary>
-        /// Checks if the currently focused element is a text editing control
+        /// Checks if the currently focused element is a text editing control or timeline
         /// </summary>
-        private bool IsTextEditingControlFocused()
+        private bool IsEditingContextActive()
         {
             var focusedElement = Keyboard.FocusedElement;
             
             // Check for text editing controls
-            return focusedElement is TextBox or 
+            if (focusedElement is TextBox or 
                    RichTextBox or 
                    PasswordBox or
                    System.Windows.Controls.ComboBox { IsEditable: true } or
-                   System.Windows.Documents.TextElement;
+                   System.Windows.Documents.TextElement)
+            {
+                return true;
+            }
+            
+            // Check if timeline control has focus
+            if (focusedElement is DependencyObject depObj)
+            {
+                var current = depObj;
+                const int maxDepth = 20;
+                var depth = 0;
+                
+                while (current != null && depth < maxDepth)
+                {
+                    if (current is WolvenKit.Views.Timeline.SectionTimelineView)
+                        return true;
+                    current = VisualTreeHelper.GetParent(current);
+                    depth++;
+                }
+            }
+            
+            return false;
         }
 
         /// <summary>
@@ -943,5 +1002,13 @@ namespace WolvenKit.Views.Documents
         }
 
         #endregion
+        
+        private void TimelinePanel_IsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
+        {
+            if (e.NewValue is false)
+            {
+                TimelineRow.SetCurrentValue(RowDefinition.HeightProperty, GridLength.Auto);
+            }
+        }
     }
 }

@@ -2,17 +2,18 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Windows.Forms;
+using System.Threading.Tasks;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Octokit;
 using WolvenKit.App.Helpers;
 using WolvenKit.App.Interaction;
 using WolvenKit.App.Models.ProjectManagement.Project;
 using WolvenKit.App.ViewModels.Dialogs;
 using WolvenKit.App.ViewModels.Tools;
+using WolvenKit.Core;
 using WolvenKit.Interfaces.Extensions;
 using YamlDotNet.RepresentationModel;
-using YamlDotNet.Serialization;
 
 namespace WolvenKit.App.ViewModels.Shell;
 
@@ -26,11 +27,9 @@ public partial class AppViewModel : ObservableObject /*, IAppViewModel*/
             return;
         }
 
-        if (SettingsManager.ModderName is not string modderName || modderName == string.Empty)
+
+        if (GetModderName() is not string modderName || string.IsNullOrEmpty(modderName))
         {
-            Interactions.ShowMessageBox(
-                "Please set a name in the preferences (Home -> Settings -> General -> Your Name) before using this feature",
-                "Configure your settings!");
             return;
         }
 
@@ -43,13 +42,13 @@ public partial class AppViewModel : ObservableObject /*, IAppViewModel*/
 
         var relativePhotoModeFolder = dialogModel.PhotomodeRelativeFolder.Trim();
 
-        var relativeEntFilePath = GetRelativePath(dialogModel.EntFileName);
-        var relativeAppFilePath = GetRelativePath(dialogModel.AppFileName);
+        var relativeEntFilePath = GetRelativeDestPath(dialogModel.EntFileName);
+        var relativeAppFilePath = GetRelativeDestPath(dialogModel.AppFileName);
 
         var inkatlasFileName = string.IsNullOrEmpty(dialogModel.InkatlasFileName)
             ? "photomode_preview_icon.inkatlas"
             : dialogModel.InkatlasFileName;
-        var relativeInkatlasFilePath = GetRelativePath(inkatlasFileName);
+        var relativeInkatlasFilePath = GetRelativeDestPath(inkatlasFileName);
 
         ProjectExplorerViewModel.SuspendFileWatcherStatic();
 
@@ -58,7 +57,7 @@ public partial class AppViewModel : ObservableObject /*, IAppViewModel*/
          */
         try
         {
-            _templateFileTools.CreatePhotoModeAppAndEnt(new PhotomodeEntAppOptions()
+            TemplateFileTools.CreatePhotoModeAppAndEnt(new PhotomodeEntAppOptions()
                 {
                     AppSourceRelPath = dialogModel.SelectedApp,
                     AppDestRelPath = relativeAppFilePath,
@@ -80,7 +79,7 @@ public partial class AppViewModel : ObservableObject /*, IAppViewModel*/
              */
             if (dialogModel.IsCreateInkatlasFile)
             {
-                _templateFileTools.CopyInkatlasTemplateSingle(relativeInkatlasFilePath, dialogModel.IsOverwrite);
+                TemplateFileTools.CopyInkatlasTemplateSingle(relativeInkatlasFilePath, dialogModel.IsOverwrite);
             }
 
             /*
@@ -88,11 +87,9 @@ public partial class AppViewModel : ObservableObject /*, IAppViewModel*/
              */
             if (dialogModel.IsCreateYamlFile)
             {
-                var yamlTargetDir =
-                    Path.Join(_projectManager.ActiveProject.ResourcesDirectory,
-                        _projectResourceTools.AppendPersonalDirectory("r6", "tweaks"), "photomode");
+                var yamlTargetDir = Path.Join(_projectManager.ActiveProject.GetResourceTweakDirectory(), "photomode");
 
-                _templateFileTools.CreatePhotomodeYaml(new PhotomodeYamlOptions()
+                TemplateFileTools.CreatePhotomodeYaml(new PhotomodeYamlOptions()
                 {
                     NpcName = dialogModel.NpcName,
                     InkatlasPath = relativeInkatlasFilePath,
@@ -126,7 +123,7 @@ public partial class AppViewModel : ObservableObject /*, IAppViewModel*/
                     File.Delete(jsonFileAbsolutePath);
                 }
 
-                _templateFileTools.CreateOrAppendToJsonFile(
+                TemplateFileTools.CreateOrAppendToJsonFile(
                     jsonFileAbsolutePath,
                     new Dictionary<string, string> { { locKey, dialogModel.NpcName } },
                     dialogModel.IsOverwrite,
@@ -186,16 +183,18 @@ public partial class AppViewModel : ObservableObject /*, IAppViewModel*/
 
         return;
 
-        string GetRelativePath(string pathOrFileName)
+        string GetRelativeDestPath(string pathOrFileName)
         {
             if (activeProject.ModFiles.Contains(pathOrFileName))
             {
                 return pathOrFileName;
             }
 
-            if (pathOrFileName.EndsWith(".yaml"))
+            if (pathOrFileName.HasFileExtension(".yaml"))
             {
-                return Path.Join(_projectResourceTools.AppendPersonalDirectory("r6", "tweaks"), pathOrFileName);
+                return Path.Join(
+                    _projectManager.ActiveProject.GetResourceTweakDirectory(SettingsManager.UseAuthorNameAsSubfolder),
+                    pathOrFileName);
             }
 
             return Path.Join(relativePhotoModeFolder, pathOrFileName);
@@ -246,15 +245,15 @@ public partial class AppViewModel : ObservableObject /*, IAppViewModel*/
         ["bin", "x64", "plugins", "cyber_engine_tweaks", "mods", "entSpawner", "data"];
 
     [RelayCommand(CanExecute = nameof(CanShowProjectActions))]
-    private void GenerateWorldbuilderProp()
+    private void RegisterWorldbuilderFiles()
     {
         if (_projectManager.ActiveProject is not Cp77Project activeProject)
         {
             return;
         }
 
-        var files = activeProject.Files
-            .Where(f => f.EndsWith(".ent") | f.EndsWith(".mesh"))
+        var files = activeProject.ModFiles
+            .Where(f => f.EndsWith(".ent") | f.EndsWith(".mesh") | f.EndsWith(".mi"))
             .OrderBy(Path.GetExtension)
             .ToList();
 
@@ -286,12 +285,11 @@ public partial class AppViewModel : ObservableObject /*, IAppViewModel*/
             fileName += ".txt";
         }
 
-        var subfolder = string.IsNullOrEmpty(SettingsManager.ModderName)
-            ? activeProject.ModName
-            : SettingsManager.ModderName;
+        var subfolder = GetModderName();
 
         WriteEntData();
         WriteMeshData();
+        WriteMiData();
 
         return;
 
@@ -321,13 +319,30 @@ public partial class AppViewModel : ObservableObject /*, IAppViewModel*/
                 return;
             }
 
-            var entFolder = Path.Join(wbDataFolder, subfolder, fileName);
+            var entFolder = Path.Join(wbDataFolder, subfolder);
             Directory.CreateDirectory(entFolder);
 
             File.WriteAllText(Path.Join(entFolder, fileName), string.Join(Environment.NewLine, ents));
 
             _loggerService.Success(
                 $"{ents.Count} entries written to {Path.Join([..s_worldBuilderDataPath, subfolder, fileName])}");
+        }
+
+        void WriteMiData()
+        {
+            var miFiles = dialogModel.SelectedOptions.Where(f => f.EndsWith(".mi")).ToList();
+            if (miFiles.Count == 0)
+            {
+                return;
+            }
+
+            var miFolder = Path.Join(wbDataFolder, "spawnables", "mi", "all", subfolder);
+            Directory.CreateDirectory(miFolder);
+
+            File.WriteAllText(Path.Join(miFolder, fileName), string.Join(Environment.NewLine, miFiles));
+
+            _loggerService.Success(
+                $"{miFiles.Count} entries written to {Path.Join([..s_worldBuilderDataPath, miFolder, fileName])}");
         }
 
     }
@@ -345,22 +360,123 @@ public partial class AppViewModel : ObservableObject /*, IAppViewModel*/
             return;
         }
 
-        if (SettingsManager.ModderName is not string modderName || modderName == string.Empty)
+        if (GetModderName() is not string modderName || string.IsNullOrEmpty(modderName))
         {
-            Interactions.ShowMessageBox(
-                "Please set a name in the preferences (Home -> Settings -> General -> Your Name) before using this feature",
-                "Configure your settings!");
             return;
         }
         var options = new QuestGenerationOptions
         {
             ModName = dialogModel.ModName,
             TargetRoot = Path.Combine(activeProject.ModDirectory, "mod"),
-            ModderName = SettingsManager.ModderName.ToLower(),
+            ModderName = modderName.ToLower(),
         };
 
-        _templateFileTools.GenerateMinimalQuest(options);
+        TemplateFileTools.GenerateMinimalQuest(options);
 
         _loggerService.Success($"Minimal quest files generated for {options.ModName}!");
+    }
+
+    [RelayCommand(CanExecute = nameof(CanShowProjectActions))]
+    private void AddOrEditRadio()
+    {
+        if (_projectManager.ActiveProject is not Cp77Project activeProject ||
+            GetModderName() is not string modderName || string.IsNullOrEmpty(modderName))
+        {
+            return;
+        }
+
+
+        if (Interactions.CreateOrEditRadioDialog(activeProject) is not { } dialogModel)
+        {
+            return;
+        }
+
+        TemplateFileTools.CreateRadio(dialogModel, modderName, activeProject);
+    }
+
+    [RelayCommand(CanExecute = nameof(CanShowProjectActions))]
+    private void GeneratePropItem()
+    {
+        if (_projectManager.ActiveProject is not Cp77Project activeProject)
+        {
+            return;
+        }
+
+        if (Interactions.ShowGeneratePropFileModel(activeProject) is not { } dialogModel)
+        {
+            return;
+        }
+
+
+        TemplateFileTools.GeneratePropFiles(dialogModel);
+        _loggerService.Success($"{dialogModel.PropName} was created and registered!");
+    }
+
+    [RelayCommand(CanExecute = nameof(CanShowProjectActions))]
+    private void AddPlayerHead()
+    {
+        if (_projectManager.ActiveProject is not Cp77Project activeProject)
+        {
+            return;
+        }
+
+        if (Interactions.ShowNewPlayerHeadView() is not { } dialogModel || dialogModel.SelectedFiles.Count == 0)
+        {
+            return;
+        }
+
+        var filesToAdd = dialogModel.SelectedFiles.ToList();
+        var existingFiles = activeProject.ModFiles.Where(f => dialogModel.SelectedFiles.Contains(f)).ToList();
+
+        if (existingFiles.Count > 0 && !Interactions.ShowQuestionYesNo((
+                $"Do you want to overwrite the existing files \n\t{string.Join("\n\t", existingFiles)}?",
+                "One or more files already exists!")))
+        {
+            filesToAdd = filesToAdd.Where(f => !existingFiles.Contains(f)).ToList();
+        }
+
+        if (filesToAdd.Count == 0)
+        {
+            return;
+        }
+
+        _notificationService.Info("Adding player head files. Wolvenkit may be unresponsive...");
+
+        var failedFiles = 0;
+        var tasks = filesToAdd.Select(relativePath => Task.Run(() =>
+        {
+            try
+            {
+                ProjectResourceTools.AddToProject(relativePath);
+            }
+            catch (Exception e)
+            {
+                System.Threading.Interlocked.Increment(ref failedFiles);
+                _loggerService.Error($"Failed to add file {relativePath}: {e.Message}");
+            }
+        })).ToArray();
+
+        Task.WhenAll(tasks).GetAwaiter().GetResult();
+
+        if (filesToAdd.Count == failedFiles)
+        {
+            _loggerService.Error("Failed to add player head files. Please see the log view for details.");
+            _notificationService.Error("Failed to add player head files. Please see the log view for details.");
+        }
+        else if (failedFiles > 0)
+        {
+            _loggerService.Success(
+                $"Added {filesToAdd.Count - failedFiles} files. {failedFiles} files failed. See log for details.");
+            _loggerService.Warning($"{failedFiles} files failed. See log for details.");
+            _notificationService.Success(
+                $"Added {filesToAdd.Count - failedFiles} files. {failedFiles} files failed. See log for details.");
+            _notificationService.Warning($"{failedFiles} files failed. See log for details.");
+        }
+        else
+        {
+            _loggerService.Success(
+                $"Added player head files. For sculpting tutorial, see {WikiLinks.PlayerHeadTutorial}.");
+            _notificationService.Success($"Successfully added {filesToAdd.Count} files to your project.");
+        }
     }
 }

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
+using WolvenKit.App.Factories;
 using WolvenKit.App.Helpers;
 using WolvenKit.App.Models.ProjectManagement.Project;
 using WolvenKit.App.Scripting;
@@ -127,6 +128,7 @@ public static class Interactions
         WMessageBoxResult
     > ShowConfirmation { get; set; } = _ => throw new NotImplementedException();
 
+
     /// <summary>
     /// Asks the user whether they want to save unsaved changes.
     /// </summary>
@@ -135,7 +137,9 @@ public static class Interactions
         = _ => throw new NotImplementedException();
 
     /// <inheritdoc cref="ShowPopupWithWeblinkAsync"/>
-    public static Func<(string, string, string, string, WMessageBoxImage), WMessageBoxResult> ShowPopupWithWeblink
+    public static
+        Func<(string text, string title, string link, string buttonText, WMessageBoxImage image), WMessageBoxResult>
+        ShowPopupWithWeblink
     {
         get;
         set;
@@ -146,6 +150,20 @@ public static class Interactions
     /// </summary>
     /// <returns>true if the user pressed OK, false otherwise</returns>
     public static Func<(string text, string caption), bool> ShowQuestionYesNo { get; set; } =
+        _ => throw new NotImplementedException();
+
+    /// <summary>
+    /// This calls <see cref="ShowConfirmation"/> with default image and yes/no/cancel buttons.
+    /// </summary>
+    /// <returns>true for yes, false for no, null for cancel</returns>
+    public static Func<(string text, string caption), bool?> ShowQuestionYesNoCancel { get; set; } =
+        _ => throw new NotImplementedException();
+
+    /// <summary>
+    /// This calls <see cref="ShowConfirmation"/> with error image and OK buttons.
+    /// </summary>
+    /// <returns>true for yes, false for no, null for cancel</returns>
+    public static Func<(string text, string caption), bool> ShowErrorPopup { get; set; } =
         _ => throw new NotImplementedException();
 
     /// <summary>
@@ -184,13 +202,20 @@ public static class Interactions
     /// <summary>
     /// Display dictionary of {relativePath => brokenReferences[]} in a dialogue.
     /// </summary>
-    public static Func<(string, IDictionary<string, List<string>>), bool> ShowBrokenReferencesList { get; set; } =
+    public static Func<(string title, string text, IDictionary<string, List<string>> list, bool isExperimental), bool>
+        ShowDictionaryAsCopyableList { get; set; } =
         _ => throw new NotImplementedException();
 
     /// <summary>
     /// Ask user for text input. Provide second argument to set a default value for input field.
     /// </summary>
     public static Func<(string dialogueTitle, string defaultValue), string> AskForTextInput { get; set; } =
+        _ => throw new NotImplementedException();
+
+    /// <summary>
+    /// Ask user for scene input (unified dialog for actors, props, dialogue, options)
+    /// </summary>
+    public static Func<(string title, string primaryLabel, string primaryDefault, bool showSecondary, string secondaryLabel, string checkboxText, bool showDropdown, string dropdownLabel, IEnumerable<string>? dropdownOptions, string? defaultDropdownValue), (string? primaryInput, bool enableSecondary, string? secondaryInput, string? dropdownValue)> AskForSceneInput { get; set; } =
         _ => throw new NotImplementedException();
 
 
@@ -206,6 +231,9 @@ public static class Interactions
     //custom views
     public static Func<bool> ShowFirstTimeSetup { get; set; } = () => throw new NotImplementedException();
     public static Func<bool> ShowLaunchProfilesView { get; set; } = () => throw new NotImplementedException();
+
+    public static Func<Cp77Project, ArchiveXlClothingItem?> ShowArchiveXlFilesView { get; set; } =
+        (Cp77Project currentProject) => throw new NotImplementedException();
     public static Func<bool> ShowMaterialRepositoryView { get; set; } = () => throw new NotImplementedException();
 
     public static Func<(IEnumerable<IDisplayable>? availableItems, IEnumerable<IDisplayable>? selectedItems),
@@ -222,6 +250,14 @@ public static class Interactions
 
 
     /// <summary>
+    /// Shows dialogue to copy mesh materials/appearances.
+    /// </summary>
+    public static Func<List<string>,
+        CopyMeshAppearancesDialogViewModel?> ShowCopyMeshAppearancesDialogue { get; set; } =
+        _ => throw new NotImplementedException();
+
+
+    /// <summary>
     /// Shows script settings overlay
     /// </summary>
     public static Func<ScriptSettingsDictionary, bool> ShowScriptSettingsView { get; set; } = _ => throw new NotImplementedException();
@@ -230,6 +266,12 @@ public static class Interactions
     /// Shows dialogue to generate .inkatlas file. Complex logic inside dialogue model.
     /// </summary>
     public static Func<Cp77Project, AddInkatlasDialogViewModel> ShowGenerateInkatlasDialogue { get; set; } =
+        _ => throw new NotImplementedException();
+
+    /// <summary>
+    /// Shows dialogue to generate .inkatlas file. Complex logic inside dialogue model.
+    /// </summary>
+    public static Func<Cp77Project, AddPropFileDialogViewModel> ShowGeneratePropFileModel { get; set; } =
         _ => throw new NotImplementedException();
 
     /// <summary>
@@ -248,4 +290,28 @@ public static class Interactions
     /// </summary>
     public static Func<Cp77Project, AddQuestDialogViewModel> ShowGenerateQuestDialogue { get; set; } =
         project => new AddQuestDialogViewModel(project);
+
+    /// <summary>
+    /// Shows dialogue to generate translation file entry
+    /// </summary>
+    public static Func<Cp77Project, LocalizationStringViewModel> ShowGenerateTranslationEntry { get; set; } =
+        project => throw new NotImplementedException();
+
+    /// <summary>
+    /// Shows dialogue to add item codes to .reds store and vendor yaml
+    /// </summary>
+    public static Func<Cp77Project, AddItemsToStoreDialogViewModel> AddItemsToStore { get; set; } =
+        project => throw new NotImplementedException();
+
+    /// <summary>
+    /// Shows dialogue to add item codes to .reds store and vendor yaml
+    /// </summary>
+    public static Func<PlayerHeadDialogViewModel> ShowNewPlayerHeadView { get; set; } =
+        () => throw new NotImplementedException();
+
+    /// <summary>
+    /// Shows dialogue to add item codes to .reds store and vendor yaml
+    /// </summary>
+    public static Func<Cp77Project, AddRadioExtFilesDialogViewModel?> CreateOrEditRadioDialog { get; set; } =
+        project => throw new NotImplementedException();
 }

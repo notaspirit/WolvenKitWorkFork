@@ -10,6 +10,7 @@ using System.IO.Compression;
 using System.Linq;
 using System.Net.Http;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
@@ -41,10 +42,12 @@ using WolvenKit.Common.Exceptions;
 using WolvenKit.Common.Extensions;
 using WolvenKit.Common.Interfaces;
 using WolvenKit.Common.Services;
+using WolvenKit.Core;
 using WolvenKit.Core.Exceptions;
 using WolvenKit.Core.Extensions;
 using WolvenKit.Core.Interfaces;
 using WolvenKit.Core.Services;
+using WolvenKit.Interfaces.Extensions;
 using WolvenKit.RED4.Archive;
 using WolvenKit.RED4.Archive.CR2W;
 using WolvenKit.RED4.Archive.IO;
@@ -77,11 +80,13 @@ public partial class AppViewModel : ObservableObject/*, IAppViewModel*/
     private readonly AppScriptService _scriptService;
     private readonly DocumentTools _documentTools;
     private readonly Cr2WTools _cr2WTools;
-    private readonly TemplateFileTools _templateFileTools;
-    private readonly ProjectResourceTools _projectResourceTools;
+    public readonly TemplateFileTools TemplateFileTools;
+    private readonly IWatcherService _watcherService;
+    private readonly ArchiveXlItemService _archiveXlItemService;
     private readonly IUpdateService _updateService;
     // expose to view
     public ISettingsManager SettingsManager { get; init; }
+    public ProjectResourceTools ProjectResourceTools { get; init; }
 
     /// <summary>
     /// Class constructor
@@ -103,6 +108,8 @@ public partial class AppViewModel : ObservableObject/*, IAppViewModel*/
         IHashService hashService,
         ITweakDBService tweakDBService,
         Red4ParserService parserService,
+        IWatcherService watcherService,
+        ArchiveXlItemService archiveXlItemService,
         AppScriptService scriptService,
         IModTools modTools,
         DocumentTools documentTools,
@@ -127,11 +134,13 @@ public partial class AppViewModel : ObservableObject/*, IAppViewModel*/
         _archiveManager = archiveManager;
         _tweakDBService = tweakDBService;
         _parser = parserService;
+        _watcherService = watcherService;
+        _archiveXlItemService = archiveXlItemService;
         _scriptService = scriptService;
         _documentTools = documentTools;
         _cr2WTools = cr2WTools;
-        _templateFileTools = templateFileTools;
-        _projectResourceTools = projectResourceTools;
+        TemplateFileTools = templateFileTools;
+        ProjectResourceTools = projectResourceTools;
         _updateService = updateService;
 
         _fileValidationScript = _scriptService.GetScripts().ToList()
@@ -306,10 +315,13 @@ public partial class AppViewModel : ObservableObject/*, IAppViewModel*/
             ShowHomePageSync();
         }
 
+#if !DEBUG
         if (SettingsManager.AutoUpdateOnStartup)
         {
             CheckForUpdatesCommand.SafeExecute(true);
         }
+#endif
+
         CheckForScriptUpdatesCommand.SafeExecute();
         CheckForLongPathSupport();
         CheckForOneDrivePath();
@@ -762,6 +774,12 @@ public partial class AppViewModel : ObservableObject/*, IAppViewModel*/
         {
             UpdateTitle();
             _notificationService.Success($"Project {Path.GetFileNameWithoutExtension(location)} loaded!");
+            // https://github.com/WolvenKit/WolvenKit/issues/1962
+            if (!location.IsSaneFilePath())
+            {
+                _notificationService.Warning($"Project path {location} contains invalid characters!");
+            }
+
             OnInitialProjectLoaded?.Invoke(this, EventArgs.Empty);
         }, TaskContinuationOptions.OnlyOnRanToCompletion);
     }
@@ -925,9 +943,26 @@ public partial class AppViewModel : ObservableObject/*, IAppViewModel*/
     [RelayCommand(CanExecute = nameof(CanShowProjectActions))]
     private async Task ScanForBrokenReferencePaths()
     {
+        var userInteraction = Interactions.ShowQuestionYesNoCancel((
+            $"This will scan {ActiveProject!.ModFiles.Count} files and can take a moment.\n\n"
+            + "Should files in other mods be treated as valid references?\n"
+            + "If you don't know what that means, click 'no'."
+            , "Scanning entire project"));
+
+        switch (userInteraction)
+        {
+            case null:
+                return;
+            case true when !_archiveManager.IsInitialized:
+                ProjectResourceTools.InitializeArchiveManager();
+                break;
+        }
+
         _loggerService.Info($"Scanning {ActiveProject!.ModFiles.Count} files. Please wait...");
         _progressService.IsIndeterminate = true;
-        var brokenReferences = await ActiveProject!.ScanForBrokenReferencePathsAsync(_archiveManager, _loggerService, _progressService);
+
+        var brokenReferences = await ActiveProject!.ScanForBrokenReferencePathsAsync(_archiveManager, _loggerService,
+            _progressService, (bool)userInteraction);
 
         if (brokenReferences.Keys.Count == 0)
         {
@@ -938,7 +973,8 @@ public partial class AppViewModel : ObservableObject/*, IAppViewModel*/
         }
 
         _loggerService.Info("Done scanning");
-        Interactions.ShowBrokenReferencesList(("Broken references", brokenReferences));
+        Interactions.ShowDictionaryAsCopyableList(("Broken references",
+            $"The following {brokenReferences.Count} files seem to hold broken references", brokenReferences, true));
     }
 
     [RelayCommand(CanExecute = nameof(CanShowProjectActions))]
@@ -948,7 +984,7 @@ public partial class AppViewModel : ObservableObject/*, IAppViewModel*/
         _progressService.IsIndeterminate = true;
 
         List<string> brokenFiles = [];
-        foreach (var relativePath in ActiveProject.ModFiles)
+        foreach (var relativePath in ActiveProject.ModFiles.Where(f => !f.HasFileExtension(".txt")))
         {
             try
             {
@@ -972,7 +1008,8 @@ public partial class AppViewModel : ObservableObject/*, IAppViewModel*/
 
         Dictionary<string, List<string>> files = [];
         files.Add(ActiveProject.ModName, brokenFiles);
-        Interactions.ShowBrokenReferencesList(("Broken references", files));
+        Interactions.ShowDictionaryAsCopyableList(("Broken references",
+            $"The following {files.Count} files seem to hold broken references", files, true));
         _progressService.IsIndeterminate = false;
         return;
 
@@ -1057,7 +1094,7 @@ public partial class AppViewModel : ObservableObject/*, IAppViewModel*/
     [RelayCommand(CanExecute = nameof(CanShowProjectActions))]
     private async Task FindUnusedFiles()
     {
-        if (ActiveProject!.ModFiles.Count > 15 && Interactions.ShowQuestionYesNo((
+        if (ActiveProject is null || ActiveProject!.ModFiles.Count > 15 && Interactions.ShowQuestionYesNo((
                 $"This will scan {ActiveProject!.ModFiles.Count} files and can take a while. Proceed?",
                 "Scan for unused references now?")) is false)
         {
@@ -1065,7 +1102,7 @@ public partial class AppViewModel : ObservableObject/*, IAppViewModel*/
         }
         _loggerService.Info($"Scanning {ActiveProject!.ModFiles.Count} files. Please wait...");
 
-        var allReferencePaths = await ActiveProject!.GetAllReferencesAsync(_progressService, _loggerService, []);
+        var allReferencePaths = await ActiveProject!.GetAllReferencesAsync(_progressService, _loggerService);
         _loggerService.Info($"Scanning {ActiveProject!.Files.Count(f => f.StartsWith("archive"))} files. Please wait...");
 
         var referencesHashSet = new HashSet<string>(allReferencePaths.SelectMany((r) => r.Value));
@@ -1320,6 +1357,69 @@ public partial class AppViewModel : ObservableObject/*, IAppViewModel*/
         }
     }
 
+    private bool CanAddAxlControlFiles() => ActiveProject is not null && !IsDialogShown;
+
+    [RelayCommand(CanExecute = nameof(CanAddAxlControlFiles))]
+    private void AddAXlItemFiles() => AddAxlFiles();
+
+    /// <summary>
+    /// Many users fill out their name when creating a new project, but have no idea the settings even exist.
+    /// While this is written back to settings from the project wizard, we still need to check (string could be empty).
+    /// </summary>
+    private string? GetModderName()
+    {
+        if (!string.IsNullOrEmpty(ActiveProject?.Author))
+        {
+            return ActiveProject.Author;
+        }
+
+        if (!string.IsNullOrEmpty(SettingsManager.ModderName))
+        {
+            return SettingsManager.ModderName;
+        }
+
+        Interactions.ShowPopupWithWeblink((
+            "Please set a name in the preferences (Home -> Settings -> General -> Your Name)!",
+            "No modder name set",
+            WikiLinks.SettingsModderName,
+            "Open Wiki",
+            WMessageBoxImage.Warning
+        ));
+
+        return null;
+    }
+
+
+    private void AddAxlFiles()
+    {
+        if (ActiveProject is null)
+        {
+            throw new WolvenKitException(0x4003, "No project loaded");
+        }
+
+        if (string.IsNullOrEmpty(GetModderName()))
+        {
+            return;
+        }
+
+        var item = Interactions.ShowArchiveXlFilesView(ActiveProject);
+        if (item is null)
+        {
+            return;
+        }
+
+        _watcherService.Suspend();
+        try
+        {
+            _archiveXlItemService.CreateEquipmentItem(item);
+        }
+        finally
+        {
+            _watcherService.Resume();
+            _watcherService.Refresh();
+        }
+    }
+
     private async Task OpenFromNewFile(NewFileViewModel? file)
     {
         CloseModalCommand.Execute(null);
@@ -1327,6 +1427,7 @@ public partial class AppViewModel : ObservableObject/*, IAppViewModel*/
         {
             return;
         }
+
 
         await Task.Run(() => OpenFromNewFileAsync(file)).ContinueWith(async (_) =>
         {
@@ -1397,6 +1498,7 @@ public partial class AppViewModel : ObservableObject/*, IAppViewModel*/
                 }
                 break;
             case EWolvenKitFile.WScript:
+            case EWolvenKitFile.Other:
                 throw new NotImplementedException();
             default:
                 break;
@@ -1653,6 +1755,7 @@ public partial class AppViewModel : ObservableObject/*, IAppViewModel*/
         }
 
         await _gameControllerFactory.GetController().LaunchProjectAsync(profile);
+        AfterProjectPacked();
     }
 
     [RelayCommand]
@@ -1687,8 +1790,13 @@ public partial class AppViewModel : ObservableObject/*, IAppViewModel*/
 
 
     [RelayCommand]
-    private void OpenExternalLink(string link)
+    private void OpenExternalLink(string? link)
     {
+        if (link is null)
+        {
+            _loggerService.Error("No link provided!");
+            return;
+        }
         var ps = new ProcessStartInfo(link)
         {
             UseShellExecute = true,
@@ -1802,6 +1910,8 @@ public partial class AppViewModel : ObservableObject/*, IAppViewModel*/
     [NotifyCanExecuteChangedFor(nameof(NewFileCommand))]
     //[NotifyCanExecuteChangedFor(nameof(CloseModalCommand))]
     [NotifyCanExecuteChangedFor(nameof(CloseDialogCommand))]
+    [NotifyCanExecuteChangedFor(nameof(AddAXlItemFilesCommand))]
+    [NotifyCanExecuteChangedFor(nameof(AddOrEditRadioCommand))]
     private bool _isDialogShown;
 
     [ObservableProperty]
@@ -1829,7 +1939,10 @@ public partial class AppViewModel : ObservableObject/*, IAppViewModel*/
     [NotifyCanExecuteChangedFor(nameof(ShowPropertiesCommand))]
     [NotifyCanExecuteChangedFor(nameof(NewPhotoModeFilesCommand))]
     [NotifyCanExecuteChangedFor(nameof(GenerateMinimalQuestFilesCommand))]
+    [NotifyCanExecuteChangedFor(nameof(GeneratePropItemCommand))]
     [NotifyCanExecuteChangedFor(nameof(GenerateInkatlasCommand))]
+    [NotifyCanExecuteChangedFor(nameof(AddAXlItemFilesCommand))]
+    [NotifyCanExecuteChangedFor(nameof(AddOrEditRadioCommand))]
     private Cp77Project? _activeProject;
 
     [ObservableProperty]
@@ -1843,8 +1956,13 @@ public partial class AppViewModel : ObservableObject/*, IAppViewModel*/
     [NotifyCanExecuteChangedFor(nameof(ShowPropertiesCommand))]
     [NotifyCanExecuteChangedFor(nameof(NewPhotoModeFilesCommand))]
     [NotifyCanExecuteChangedFor(nameof(GenerateMinimalQuestFilesCommand))]
-    [NotifyCanExecuteChangedFor(nameof(GenerateWorldbuilderPropCommand))]
+    [NotifyCanExecuteChangedFor(nameof(GeneratePropItemCommand))]
+    [NotifyCanExecuteChangedFor(nameof(AddPlayerHeadCommand))]
+    [NotifyCanExecuteChangedFor(nameof(RegisterWorldbuilderFilesCommand))]
     [NotifyCanExecuteChangedFor(nameof(GenerateInkatlasCommand))]
+    [NotifyCanExecuteChangedFor(nameof(AddAXlItemFilesCommand))]
+    [NotifyCanExecuteChangedFor(nameof(AddOrEditRadioCommand))]
+    [NotifyCanExecuteChangedFor(nameof(AddOrEditRadioCommand))]
     private EAppStatus? _status;
 
     [ObservableProperty]
@@ -1976,7 +2094,54 @@ public partial class AppViewModel : ObservableObject/*, IAppViewModel*/
         return false;
     }
 
+    private bool _warningsDisplayed = false;
 
+    private void AfterProjectPacked()
+    {
+        if (_warningsDisplayed || ActiveProject is null ||
+            SettingsManager.GetRED4GameExecutablePath() is not string exePath)
+        {
+            return;
+        }
+
+        var mlsetupFiles = ActiveProject.ModFiles
+            .Where(f => f.StartsWith("base") || f.StartsWith("ep1"))
+            .Where(f => f.EndsWith(".mlsetup"))
+            .ToList();
+
+        if (mlsetupFiles.Count == 0 ||
+            !mlsetupFiles.Any(f => _archiveManager.IsFileInScope(f, ArchiveManagerScope.Basegame)))
+        {
+            return;
+        }
+
+        _archiveManager.Initialize(new FileInfo(exePath), false);
+        if (_archiveManager.IsModInstalled("MaterialAndTextureOverride"))
+        {
+            return;
+        }
+
+        if (_archiveManager.IsModInstalled("###_nim_material_override"))
+        {
+            _warningsDisplayed = true;
+            Interactions.ShowPopupWithWeblink((
+                "You have an old version of MTO installed, which can lead to crashes. Click 'Open Wiki' for more information.",
+                "Old version of MTO installed",
+                "https://wiki.redmodding.org/wolvenkit/wolvenkit-app/error-codes#mto-requirement",
+                "Open Wiki",
+                WMessageBoxImage.Warning
+            ));
+        }
+
+        _warningsDisplayed = true;
+        Interactions.ShowPopupWithWeblink((
+            "Modding base-game .mlsetup files will not have an effect in-game unless you install the 'Material Texture Override' mod. For more information, click on 'Open Wiki'.",
+            "MTO not installed",
+            "https://wiki.redmodding.org/wolvenkit/wolvenkit-app/error-codes#mto-requirement",
+            "Open Wiki",
+            WMessageBoxImage.Warning
+        ));
+    }
 
     private async Task LoadTweakDB()
     {
@@ -2031,6 +2196,7 @@ public partial class AppViewModel : ObservableObject/*, IAppViewModel*/
             case EWolvenKitFile.ArchiveXl:
             case EWolvenKitFile.RedScript:
             case EWolvenKitFile.CETLua:
+            case EWolvenKitFile.Other:
             default:
                 break;
         }
@@ -2191,13 +2357,24 @@ public partial class AppViewModel : ObservableObject/*, IAppViewModel*/
     {
         try
         {
-            ProcessStartInfo proc = new(fullpath.ToEscapedPath()) { UseShellExecute = true };
-            Process.Start(proc);
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+                ProcessStartInfo proc = new(fullpath.ToEscapedPath()) { UseShellExecute = true };
+                Process.Start(proc);
+            }
+            else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+            {
+                Process.Start("xdg-open", fullpath);
+            }
+            else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+            {
+                Process.Start("open", fullpath);
+            }
         }
-        catch (Win32Exception)
+        catch (Exception e)
         {
             // eat this: no default app set for filetype
-            _loggerService.Error($"No default program set in Windows to open file extension {Path.GetExtension(fullpath)}");
+            _loggerService.Error($"Failed to open extension {Path.GetExtension(fullpath)}: {e.Message}");
         }
     }
 
@@ -2216,110 +2393,116 @@ public partial class AppViewModel : ObservableObject/*, IAppViewModel*/
         }
     }
 
+    // everything in ignoredExtensions is delegated to the System viewer
+    private const string s_ignoredExceptionsDelimiter = "|";
 
-    /// <param name="fullpath">Absolute path of the file</param>
+    private bool IsExtensionIgnored(string ext) =>
+        (SettingsManager.TreeViewIgnoredExtensions ?? "")
+        .Split(s_ignoredExceptionsDelimiter)
+        .Any(entry => entry.ToLower().Trim().Equals(ext));
+
+    /// <param name="absolutePath">Absolute path of the file</param>
     /// <param name="ignoreIgnoredExtension">Sometimes, we need to open files for internal script use. Set this flag to true for this case.</param>
     /// <exception cref="InvalidFileTypeException"></exception>
-    public void RequestFileOpen(string fullpath, bool ignoreIgnoredExtension = false)
+    public void RequestFileOpen(string absolutePath, bool ignoreIgnoredExtension = false)
     {
-        var ext = Path.GetExtension(fullpath).ToLower();
-
-        // everything in ignoredExtensions is delegated to the System viewer
-        var delimiter = "|";
-        //string[] ignoredExtensions = _settingsManager.TreeViewIgnoredExtensions.ToLower().Split(delimiter);
-        //bool isAnIgnoredExtension = Array.Exists(ignoredExtensions, extension => extension.Equals(ext));
-        var isAnIgnoredExtension = (SettingsManager.TreeViewIgnoredExtensions ?? "").Split(delimiter)
-            .Any(entry => entry.ToLower().Trim().Equals(ext));
-        if (isAnIgnoredExtension && !ignoreIgnoredExtension)
+        if (!File.Exists(absolutePath))
         {
-            ShellExecute(fullpath);
+            return;
         }
-        // double click
-        else
+
+        var ext = Path.GetExtension(absolutePath).ToLower();
+
+        if (!ignoreIgnoredExtension && IsExtensionIgnored(ext))
         {
-            switch (ext)
-            {
-                // custom raw file extensions
-                case $".{nameof(ERawFileFormat.masklist)}":
+            ShellExecute(absolutePath);
+            return;
+        }
 
-                // images
-                case ".png":
-                case ".jpg":
-                case ".tga":
-                case ".bmp":
-                case ".jpeg":
-                case ".dds":
+        switch (ext)
+        {
+            // custom raw file extensions
+            case $".{nameof(ERawFileFormat.masklist)}":
 
-                //text
-                case ".xml":
-                case ".txt":
-                case ".ws":
-                case ".lua":
+            // images
+            case ".png":
+            case ".jpg":
+            case ".tga":
+            case ".bmp":
+            case ".jpeg":
+            case ".dds":
 
-                // other
-                case ".mp3":
-                case ".wav":
-                case ".glb":
-                case ".gltf":
-                case ".fbx":
-                case ".xcf":
-                case ".psd":
-                case ".apb":
-                case ".apx":
-                case ".ctw":
-                case ".blend":
-                case ".zip":
-                case ".rar":
-                case ".bat":
-                case ".yml":
-                case ".log":
-                case ".ini":
-                case ".xl":
-                case ".reds":
-                case ".yaml":
-                case ".tweak":
-                    ShellExecute(fullpath);
-                    break;
-                // double file formats
-                case ".csv":
-                case ".json":
-                    if (IsInRawFolder(fullpath) || IsInResourceFolder(fullpath))
-                    {
-                        ShellExecute(fullpath);
-                    }
-                    else
-                    {
-                        OpenRedengineFile(fullpath, ext);
-                    }
-                    break;
-                // VIDEO
-                case ".bk2":
-                    break;
+            //text
+            case ".xml":
+            case ".txt":
+            case ".ws":
+            case ".lua":
 
-                // AUDIO
-
-                case ".wem":
-                    OpenAudioFile();
-                    break;
-                case ".subs":
-                    PolymorphExecute(fullpath, ".txt");
-                    break;
-                case ".usm":
+            // other
+            case ".mp3":
+            case ".wav":
+            case ".glb":
+            case ".gltf":
+            case ".fbx":
+            case ".xcf":
+            case ".psd":
+            case ".apb":
+            case ".apx":
+            case ".ctw":
+            case ".blend":
+            case ".zip":
+            case ".rar":
+            case ".bat":
+            case ".yml":
+            case ".log":
+            case ".ini":
+            case ".xl":
+            case ".reds":
+            case ".yaml":
+            case ".tweak":
+                ShellExecute(absolutePath);
+                break;
+            // double file formats
+            case ".csv":
+            case ".json":
+                if (IsInRawFolder(absolutePath) || IsInResourceFolder(absolutePath))
                 {
-                    // TODO: port winforms
-                    //if (!File.Exists(fullpath) || Path.GetExtension(fullpath) != ".usm")
-                    //    return;
-                    //var usmPlayer = new frmUsmPlayer(fullpath);
-                    //usmPlayer.Show(dockPanel, DockState.Document);
-                    break;
+                    ShellExecute(absolutePath);
                 }
-                //case ".BNK":
-                // TODO SPLIT WEMs TO PLAYLIST FROM BNK
-                default:
-                    OpenRedengineFile(fullpath, ext);
-                    break;
+                else
+                {
+                    OpenRedengineFile(absolutePath, ext);
+                }
+
+                break;
+            // VIDEO
+            case ".bk2":
+                break;
+
+            // AUDIO
+
+            case ".wem":
+                OpenAudioFile();
+                break;
+            case ".subs":
+                PolymorphExecute(absolutePath, ".txt");
+                break;
+            case ".usm":
+            {
+                // TODO: port winforms
+                //if (!File.Exists(fullpath) || Path.GetExtension(fullpath) != ".usm")
+                //    return;
+                //var usmPlayer = new frmUsmPlayer(fullpath);
+                //usmPlayer.Show(dockPanel, DockState.Document);
+                break;
             }
+            //case ".BNK":
+            // TODO SPLIT WEMs TO PLAYLIST FROM BNK
+            default:
+                OpenRedengineFile(absolutePath, ext);
+                break;
         }
+        
     }
 
     public void CloseFile(IDocumentViewModel documentViewModel) => DockedViews.Remove(documentViewModel);
@@ -2377,7 +2560,11 @@ public partial class AppViewModel : ObservableObject/*, IAppViewModel*/
         resources["WolvenKitMarginBottom"] = new Thickness(0, 0, 0, 15).Mul(_uiScalePercentage).Round();
         resources["WolvenKitMarginHorizontal"] = new Thickness(15, 0, 15, 0).Mul(_uiScalePercentage).Round();
         resources["WolvenKitMarginVertical"] = new Thickness(0, 15, 0, 15).Mul(_uiScalePercentage).Round();
+        resources["WolvenKitMarginHeader"] = new Thickness(15, 15, 15, 0).Mul(_uiScalePercentage).Round();
+        resources["WolvenKitMarginFooter"] = new Thickness(15, 0, 15, 15).Mul(_uiScalePercentage).Round();
         resources["WolvenKitMarginLeftBottom"] = new Thickness(15, 0, 0, 15).Mul(_uiScalePercentage).Round();
+        resources["WolvenKitMarginLeftTop"] = new Thickness(15, 15, 0, 0).Mul(_uiScalePercentage).Round();
+        resources["WolvenKitMarginLeftSmallTop"] = new Thickness(15, 8, 0, 0).Mul(_uiScalePercentage).Round();
 
         resources["WolvenKitMarginSmall"] = new Thickness(8).Mul(_uiScalePercentage).Round();
         resources["WolvenKitMarginSmallLeft"] = new Thickness(8, 0, 0, 0).Mul(_uiScalePercentage).Round();
@@ -2390,6 +2577,7 @@ public partial class AppViewModel : ObservableObject/*, IAppViewModel*/
         resources["WolvenKitMarginSmallFooter"] = new Thickness(8, 0, 8, 8).Mul(_uiScalePercentage).Round();
         resources["WolvenKitMarginSmallLeftSide"] = new Thickness(8, 8, 0, 8).Mul(_uiScalePercentage).Round();
         resources["WolvenKitMarginSmallRightSide"] = new Thickness(0, 8, 8, 8).Mul(_uiScalePercentage).Round();
+        resources["WolvenKitMarginSmallLeftTop"] = new Thickness(8, 8, 0, 0).Mul(_uiScalePercentage).Round();
 
         resources["WolvenKitMarginTiny"] = new Thickness(4).Mul(_uiScalePercentage).Round();
         resources["WolvenKitMarginTinyRight"] = new Thickness(0, 0, 4, 0).Mul(_uiScalePercentage).Round();
@@ -2461,7 +2649,9 @@ public partial class AppViewModel : ObservableObject/*, IAppViewModel*/
         resources["WolvenKitHomeSharedPaddingLeft"] = new Thickness(10, 0, 0, 0).Mul(_uiScalePercentage).Round();
 
         // WelcomePageView
-        resources["WolvenKitWelcomeRightLength"] = new GridLength(380).Mul(_uiScalePercentage).Round();
+        resources["WolvenKitWelcomeLogoMaxHeight"] = Math.Round(150 * _uiScalePercentage);
+        resources["WolvenKitWelcomeLeftMinWidth"] = Math.Round(315 * _uiScalePercentage);
+        resources["WolvenKitWelcomeRightLength"] = Math.Round(380 * _uiScalePercentage);
         resources["WolvenKitWelcomeOrderWidth"] = Math.Round(140 * _uiScalePercentage);
         resources["WolvenKitWelcomeCardSammyWidth"] = new GridLength(70).Mul(_uiScalePercentage).Round();
         resources["WolvenKitWelcomeCardSammyHeight"] = Math.Round(70 * _uiScalePercentage);
@@ -2475,6 +2665,9 @@ public partial class AppViewModel : ObservableObject/*, IAppViewModel*/
         resources["WolvenKitWelcomeStackHeight"] = Math.Round(70 * _uiScalePercentage);
         resources["WolvenKitWelcomeStackMargin"] = new Thickness(0, 4, 50, 0).Mul(_uiScalePercentage).Round();
         resources["WolvenKitWelcomeSocialButtonHeight"] = Math.Round(50 * _uiScalePercentage);
+
+        resources["WolvenKitWelcomeBreakWidth"] = Math.Round(1250 * _uiScalePercentage);
+        resources["WolvenKitWelcomeActionsColumnBreakWidth"] = Math.Round(914 * _uiScalePercentage);
 
         // SettingsPageView
         resources["WolvenKitSettingsGridLabelWidth"] = new GridLength(200).Mul(_uiScalePercentage).Round();
@@ -2687,5 +2880,84 @@ public partial class AppViewModel : ObservableObject/*, IAppViewModel*/
 
         ActiveDocument = null;
         _lastActiveDocument = null;
+    }
+
+    /// <summary>
+    /// Reloads an open document tab.
+    /// </summary>
+    /// <param name="absolutePath">Absolute path of file to reload</param>
+    /// <param name="saveIfDirty">Save if dirty?</param>
+    public void ReloadIfOpen(string absolutePath, bool saveIfDirty = true)
+    {
+        if (string.IsNullOrEmpty(absolutePath) || !File.Exists(absolutePath) ||
+            _projectManager.ActiveProject is not { } project)
+        {
+            return;
+        }
+
+        // Find the document with this file path
+        if (DockedViews.OfType<IDocumentViewModel>().FirstOrDefault(doc =>
+                absolutePath.Equals(doc.FilePath, StringComparison.OrdinalIgnoreCase))
+            is not IDocumentViewModel openDocument)
+        {
+            return;
+        }
+
+        if (openDocument.IsDirty && saveIfDirty)
+        {
+            SaveIfDirty(absolutePath);
+        }
+        else if (!saveIfDirty)
+        {
+            _loggerService.Warning(
+                $"File {project.GetRelativePath(absolutePath)} has unsaved changes and will not be reloaded!");
+            return;
+        }
+
+        try
+        {
+            if (!openDocument.IsDirty)
+            {
+                openDocument.Reload(true);
+            }
+        }
+        catch
+        {
+            _loggerService.Error($"Failed to reload {project.GetRelativePath(absolutePath)}");
+        }
+    }
+
+    /// <summary>
+    /// Saves an open document tab, if it's dirty.
+    /// </summary>
+    /// <param name="absolutePath">Absolute path of file to save</param>
+    /// <returns>Is the file clean (safe to read/overwrite?)</returns>
+    public bool SaveIfDirty(string absolutePath)
+    {
+        if (string.IsNullOrEmpty(absolutePath) || _projectManager.ActiveProject is not { } project)
+        {
+            return true;
+        }
+
+        // Find the document with this file path
+        if (DockedViews.OfType<IDocumentViewModel>()
+                .FirstOrDefault(doc =>
+                    absolutePath.Equals(doc.FilePath, StringComparison.OrdinalIgnoreCase))
+            is not { IsDirty: true })
+        {
+            return true;
+        }
+
+        try
+        {
+            SaveFile(absolutePath);
+        }
+        catch
+        {
+            _loggerService.Error($"Failed to save {project.GetRelativePath(absolutePath)}");
+            return false;
+        }
+
+        return true;
     }
 }

@@ -1,10 +1,9 @@
-using System.IO;
 using System.Reactive.Disposables;
 using System.Windows;
 using ReactiveUI;
 using Splat;
 using WolvenKit.App.Interaction;
-using WolvenKit.App.Services;
+using WolvenKit.App.Models.ProjectManagement.Project;
 using WolvenKit.App.ViewModels.Shell;
 
 namespace WolvenKit.Views.Shell;
@@ -54,14 +53,30 @@ public partial class MenuBarView : ReactiveUserControl<MenuBarViewModel>
                     view => view.MenuItemGenerateMinimalQuest)
                 .DisposeWith(disposables);
             this.BindCommand(ViewModel,
-                    viewModel => viewModel.MainViewModel.GenerateWorldbuilderPropCommand,
-                    view => view.MenuItemGenerateWorldBuilderPropFile)
+                    viewModel => viewModel.MainViewModel.AddOrEditRadioCommand,
+                    view => view.MenuItemAddOrEditRadio)
+                .DisposeWith(disposables);
+            this.BindCommand(ViewModel,
+                    viewModel => viewModel.MainViewModel.RegisterWorldbuilderFilesCommand,
+                    view => view.MenuItemRegisterWorldbuilderFiles)
+                .DisposeWith(disposables);
+            this.BindCommand(ViewModel,
+                    viewModel => viewModel.MainViewModel.GeneratePropItemCommand,
+                    view => view.MenuItemGeneratePropFile)
+                .DisposeWith(disposables);
+            this.BindCommand(ViewModel,
+                    viewModel => viewModel.MainViewModel.AddPlayerHeadCommand,
+                    view => view.MenuItemAddPlayerHead)
                 .DisposeWith(disposables);
 
             // Archive
             this.BindCommand(ViewModel,
                     viewModel => viewModel.MainViewModel.ImportArchiveCommand,
                     view => view.MenuItemImportArchive)
+                .DisposeWith(disposables);
+            this.BindCommand(ViewModel,
+                    viewModel => viewModel.MainViewModel.AddAXlItemFilesCommand,
+                    view => view.MenuItemAddAxlItemFiles)
                 .DisposeWith(disposables);
             this.BindCommand(ViewModel,
                     viewModel => viewModel.MainViewModel.SaveFileCommand,
@@ -228,29 +243,6 @@ public partial class MenuBarView : ReactiveUserControl<MenuBarViewModel>
                    view => view.MenuItemShowModsView)
                .DisposeWith(disposables);
 
-            this.BindCommand(ViewModel,
-                    viewModel => viewModel.MainViewModel.OpenExternalLinkCommand,
-                    view => view.MenuItemCyberpunkBlenderAddonLink,
-                    viewModel => viewModel.WikiLinks.CyberpunkBlenderAddon);
-
-            // Help
-            this.BindCommand(ViewModel,
-                    viewModel => viewModel.MainViewModel.OpenExternalLinkCommand,
-                    view => view.MenuItemWolvenKitSetupLink,
-                    viewModel => viewModel.WikiLinks.WolvenKitSetupGuide);
-            this.BindCommand(ViewModel,
-                    viewModel => viewModel.MainViewModel.OpenExternalLinkCommand,
-                    view => view.MenuItemWolvenKitCreatingAModLink,
-                    viewModel => viewModel.WikiLinks.WolvenKitCreatingAModGuide);
-            this.BindCommand(ViewModel,
-                    viewModel => viewModel.MainViewModel.OpenExternalLinkCommand,
-                    view => view.MenuItemDiscordInvitationLink,
-                    viewModel => viewModel.WikiLinks.DiscordInvitation);
-            this.BindCommand(ViewModel,
-                    viewModel => viewModel.MainViewModel.OpenExternalLinkCommand,
-                    view => view.MenuItemAboutWolvenKitLink,
-                    viewModel => viewModel.WikiLinks.AboutWolvenKit);
-
             // visibility
             this.Bind(ViewModel,
                     viewModel => viewModel.ProjectExplorerCheckbox,
@@ -286,4 +278,36 @@ public partial class MenuBarView : ReactiveUserControl<MenuBarViewModel>
 
     private void SaveCurrentLayoutToDefault(object sender, RoutedEventArgs e) => DockingAdapter.G_Dock.SaveLayout(true);
     private void GenerateMaterialRepoButton_Click(object sender, RoutedEventArgs e) => Interactions.ShowMaterialRepositoryView();
+
+    private void GenerateItemCodes_Click(object sender, RoutedEventArgs e)
+    {
+        if (ViewModel is not MenuBarViewModel vm)
+        {
+            return;
+        }
+
+        var itemCodes = vm.GenerateItemCodesFromYaml();
+
+        if (itemCodes.Count == 0)
+        {
+            return;
+        }
+
+        Interactions.ShowDictionaryAsCopyableList(("Item codes:", "These are your item codes", itemCodes, false));
+    }
+
+
+    private void AddItemsToVendor_Click(object sender, RoutedEventArgs e)
+    {
+        if (ViewModel is not MenuBarViewModel vm || vm.MainViewModel.ActiveProject is not Cp77Project project)
+        {
+            return;
+        }
+
+        var dialogVm = Interactions.AddItemsToStore(project);
+
+        vm.AddItemCodesToFiles(dialogVm);
+    }
+
+
 }

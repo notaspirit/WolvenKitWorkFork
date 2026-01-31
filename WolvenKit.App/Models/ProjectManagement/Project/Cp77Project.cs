@@ -270,40 +270,66 @@ public sealed partial class Cp77Project : IEquatable<Cp77Project>, ICloneable
         }
     }
 
-
-    /// <summary>
-    /// Path to /source/resources/r6/tweaks
-    /// </summary>
-    public string ResourceTweakDirectory
+    /// <param name="useModderName">Default: false, will use name of mod author as subfolder</param>
+    /// <returns><code>/source/resources/r6/scripts/$MOD_NAME</code> or <code>/source/resources/r6/scripts/$AUTHOR_NAME</code></returns>
+    public string GetResourceScriptsDirectory(bool useModderName = false)
     {
-        get
+        var subDir = ModName.ToFileName();
+        if (useModderName && !string.IsNullOrEmpty(Author))
         {
-            var dir = Path.Combine(ResourcesDirectory, "r6", "tweaks", Name);
-            if (!Directory.Exists(dir))
-            {
-                Directory.CreateDirectory(dir);
-            }
-
-            return dir;
+            subDir = Author.ToFileName();
         }
+
+        var dir = Path.Combine(ResourcesDirectory, "r6", "scripts", subDir);
+
+        if (!Directory.Exists(dir))
+        {
+            Directory.CreateDirectory(dir);
+        }
+
+        return dir;
     }
 
-    /// <summary>
-    /// Path to /source/resources/r6/scripts
-    /// </summary>
-    public string ResourceScriptsDirectory
+    /// <returns><code>$ABSOLUTE_PATH/source/resources/bin/x64/plugins/cyber_engine_tweaks/mods/$MOD_NAME</code> or <code>$ABSOLUTE_PATH/source/resources/bin/x64/plugins/cyber_engine_tweaks/mods/$AUTHOR_NAME</code></returns>
+    public string GetResourceCETDirectory()
     {
-        get
-        {
-            var dir = Path.Combine(ResourcesDirectory, "r6", "scripts", Name);
-            if (!Directory.Exists(dir))
-            {
-                Directory.CreateDirectory(dir);
-            }
+        var dir = Path.Combine(ResourcesDirectory, "bin", "x64", "plugins", "cyber_engine_tweaks", "mods");
 
-            return dir;
+        if (!Directory.Exists(dir))
+        {
+            Directory.CreateDirectory(dir);
         }
+
+        return dir;
     }
+
+    /// Returns ABSOLUTE PATH to tweak directory (use <see cref="GetRelativeResourceTweakDirectory"/> otherwise).
+    /// <param name="useModderName">Default: false, will use name of mod author as subfolder</param>
+    /// <param name="createDirectory">Default: false, will create directory if it doesn't exist</param>
+    /// <returns><code>$ABSOLUTE_PATH/source/resources/r6/tweaks/$MOD_NAME</code> or <code>$ABSOLUTE_PATH/source/resources/r6/tweaks/$AUTHOR_NAME</code></returns>
+    public string GetResourceTweakDirectory(bool useModderName = false, bool createDirectory = false)
+    {
+        var subDir = ModName.ToFileName();
+        if (useModderName && !string.IsNullOrEmpty(Author))
+        {
+            subDir = Author.ToFileName();
+        }
+
+        var dirPath = Path.Combine(ResourcesDirectory, s_tweakSubfolder, subDir);
+
+        if (createDirectory && !Directory.Exists(dirPath))
+        {
+            Directory.CreateDirectory(dirPath);
+        }
+
+        return dirPath;
+    }
+
+    /// Returns RELATIVE PATH to tweak directory (use <see cref="GetResourceTweakDirectory"/> otherwise).
+    /// <param name="useModderName">Default: false, will use name of mod author as subfolder</param>
+    /// <returns><code>source/resources/r6/tweaks/$MOD_NAME</code> or <code>source/resources/r6/tweaks/$AUTHOR_NAME</code></returns>
+    public string GetRelativeResourceTweakDirectory(bool useModderName = false) =>
+        GetRelativePath(GetResourceTweakDirectory(useModderName));
 
     /// <summary>
     /// Path to /packed
@@ -454,7 +480,7 @@ public sealed partial class Cp77Project : IEquatable<Cp77Project>, ICloneable
     {
         get
         {
-            var dir = Path.Combine(PackedRootDirectory, "r6", "tweaks");
+            var dir = Path.Combine(PackedRootDirectory, s_tweakSubfolder);
             if (!Directory.Exists(dir))
             {
                 Directory.CreateDirectory(dir);
@@ -566,25 +592,25 @@ public sealed partial class Cp77Project : IEquatable<Cp77Project>, ICloneable
 
     public string GetAbsolutePath(string fileName, string? rootRelativeFolder)
     {
-        rootRelativeFolder ??= "";
-        switch (Path.GetExtension(fileName))
+        if (!fileName.HasFileExtension(".yaml"))
         {
-            case ".yaml" when string.IsNullOrEmpty(rootRelativeFolder):
-                rootRelativeFolder = s_tweakSubfolder;
-                break;
-            case ".yaml" when !rootRelativeFolder.StartsWith(s_tweakSubfolder):
-                rootRelativeFolder = Path.Join(s_tweakSubfolder, rootRelativeFolder);
-                break;
-            default:
-                break;
+            return Path.GetExtension(fileName) switch
+            {
+                ".xl" => Path.Join(ResourcesDirectory, fileName),
+                _ => Path.Join(ModDirectory, rootRelativeFolder ?? "", fileName)
+            };
         }
 
-        return Path.GetExtension(fileName) switch
+        if (string.IsNullOrEmpty(rootRelativeFolder))
         {
-            ".xl" => Path.Join(ResourcesDirectory, fileName),
-            ".yaml" => Path.Join(ResourcesDirectory, rootRelativeFolder, fileName),
-            _ => Path.Join(ModDirectory, rootRelativeFolder, fileName)
-        };
+            rootRelativeFolder = s_tweakSubfolder;
+        }
+        else if (!rootRelativeFolder.StartsWith(s_tweakSubfolder))
+        {
+            rootRelativeFolder = Path.Join(s_tweakSubfolder, rootRelativeFolder);
+        }
+
+        return Path.Join(ResourcesDirectory, rootRelativeFolder, fileName);
     }
 
     private const string s_relativeModDir = "wkitmoddir";
@@ -690,6 +716,19 @@ public sealed partial class Cp77Project : IEquatable<Cp77Project>, ICloneable
         return relPath;
     }
 
+    public Task<IDictionary<string, List<string>>> GetAllReferencesAsync(
+        IProgressService<double> progressService,
+        ILoggerService loggerService) => GetAllReferencesAsync(progressService, loggerService, []);
+
+    /// <summary>
+    /// Collects all references from all files in the project, or from a given list of files.
+    /// </summary>
+    /// <param name="progressService"></param>
+    /// <param name="loggerService"></param>
+    /// <param name="filePaths">Allows passing a list of files for reference filtering.
+    /// If the list is empty, the entire project will be scanned.
+    /// </param>
+    /// <returns></returns>
     public async Task<IDictionary<string, List<string>>> GetAllReferencesAsync(
         IProgressService<double> progressService,
         ILoggerService loggerService,
@@ -713,14 +752,15 @@ public sealed partial class Cp77Project : IEquatable<Cp77Project>, ICloneable
             {
                 try
                 {
-                    CR2WFile? cr2WFile;
                     List<string> resourcePaths = [];
 
                     using (var fs = File.Open(GetAbsolutePath(filePath), FileMode.Open))
                     using (var cr = new CR2WReader(fs))
                     {
-                        if (cr.ReadFile(out cr2WFile) != RED4.Archive.IO.EFileReadErrorCodes.NoError || cr2WFile is null)
+                        if (cr.ReadFile(out var cr2WFile) != RED4.Archive.IO.EFileReadErrorCodes.NoError ||
+                            cr2WFile is null)
                         {
+                            loggerService.Warning($"Failed to open {filePath}");
                             return;
                         }
 
@@ -736,16 +776,12 @@ public sealed partial class Cp77Project : IEquatable<Cp77Project>, ICloneable
                         }
                         else
                         {
-                            foreach (var redRef in cr2WFile.FindType(typeof(IRedRef)).Select(r => r.Value)
-                                         .OfType<IRedRef>())
+                            foreach (var pathString in cr2WFile.FindType(typeof(IRedRef)).Select(r => r.Value)
+                                         .OfType<IRedRef>().Select(r => r.DepotPath.GetResolvedText())
+                                         .Where(s => !string.IsNullOrEmpty(s)))
                             {
-                                if (redRef.DepotPath == ResourcePath.Empty)
-                                {
-                                    continue;
-                                }
-
                                 resourcePaths.AddRange(
-                                    ResolveResourcePaths(redRef.DepotPath.GetResolvedText(), cr2WFile));
+                                    ResolveResourcePaths(pathString, cr2WFile));
                             }
 
                             // Check redStrings that contain resource paths. This happens inside quest files.
@@ -858,24 +894,31 @@ public sealed partial class Cp77Project : IEquatable<Cp77Project>, ICloneable
         // CDPR originals - they have them in all of their NPCS, surely it'll be fine to just ignore them
         @"base\fx\characters\npc\kerenzikov",
         @"base\animations\anim_motion_database\cover_action.csv",
+        @"ep1\fx\gameplay\perks_ep1\spy_mantis_blades\spy_perks_charge_hit.effect",
         @"ep1\animations\npc\gameplay\woman_average\gang\unarmed\wa_gang_unarmed_reaction_death.anims",
+        @"ep1\animations\npc\gameplay\man_average\gang\unarmed\ma_gang_unarmed_reaction_death.anims",
     ];
 
     public Task<IDictionary<string, List<string>>> ScanForBrokenReferencePathsAsync(IArchiveManager archiveManager,
-        ILoggerService loggerService, IProgressService<double> progressService) =>
-        ScanForBrokenReferencePathsAsync(archiveManager, loggerService, progressService, new SortedDictionary<string, List<string>>());
+        ILoggerService loggerService, IProgressService<double> progressService, bool includeModFiles = false) =>
+        ScanForBrokenReferencePathsInListAsync(archiveManager, loggerService, progressService,
+            new SortedDictionary<string, List<string>>(), includeModFiles);
 
-    public async Task<IDictionary<string, List<string>>> ScanForBrokenReferencePathsAsync(IArchiveManager archiveManager,
-        ILoggerService loggerService, IProgressService<double> progressService, IDictionary<string, List<string>> references)
+
+    public async Task<IDictionary<string, List<string>>> ScanForBrokenReferencePathsInListAsync(
+        IArchiveManager archiveManager,
+        ILoggerService loggerService,
+        IProgressService<double> progressService,
+        IDictionary<string, List<string>> references,
+        bool includeModFiles = false)
     {
         if (references.Count == 0)
         {
-            references.AddRange(await GetAllReferencesAsync(progressService, loggerService, []));
+            references.AddRange(await GetAllReferencesAsync(progressService, loggerService));
         }
 
         SortedDictionary<string, List<string>> brokenReferences = new();
 
-        progressService.IsIndeterminate = true;
         progressService.Report(0);
         var totalFiles = references.Count;
         var processedFiles = 0;
@@ -888,14 +931,20 @@ public sealed partial class Cp77Project : IEquatable<Cp77Project>, ICloneable
                 // path is either not in the project/game, or it is the file itself
                 var pathsWithError = kvp.Value
                     .Distinct()
-                    // Some dead references are allowed - e.g. xbae's facial animation pack
+                    .Where(filePath => !string.IsNullOrEmpty(filePath) &&
+                                       !filePath.Equals("none", StringComparison.CurrentCultureIgnoreCase) &&
+                                       filePath != "0")
+                    // Some dead references are allowed - e.g. xbae's facial animation pack or CDPR's known issues
                     .Where(filePath => s_allowedDeadReferencePartials.All(part => !filePath.StartsWith(part)))
                     .Where(filePath =>
                         // Warn if file references itself
                         filePath == kvp.Key ||
-                        // Warn if file is not in same mod or basegame
-                        (!ModFiles.Contains(filePath) && archiveManager.GetGameFile(filePath, true,
-                            true) is null))
+                        // File is not in the same mod
+                        (!ModFiles.Contains(filePath)
+                         // Scan for game files and files in other mods (by parameter). We already covered project.
+                         && archiveManager.GetGameFile(filePath, includeModFiles, false) is null
+                        )
+                    )
                     .ToList();
 
                 if (pathsWithError.Count > 0)
@@ -908,7 +957,6 @@ public sealed partial class Cp77Project : IEquatable<Cp77Project>, ICloneable
 
                 // Update progress
                 var currentProgress = Interlocked.Increment(ref processedFiles) * progressIncrement;
-                progressService.IsIndeterminate = false;
                 progressService.Report(currentProgress);
             });
         });

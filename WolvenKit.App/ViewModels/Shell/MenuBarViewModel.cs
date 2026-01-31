@@ -1,25 +1,15 @@
+using System.Collections.Generic;
 using System.ComponentModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using WolvenKit.App.Extensions;
 using WolvenKit.App.Helpers;
 using WolvenKit.App.Services;
+using WolvenKit.App.ViewModels.Dialogs;
 using WolvenKit.App.ViewModels.Tools;
+using WolvenKit.Core;
 
 namespace WolvenKit.App.ViewModels.Shell;
-
-// this has to be a class for the sake of view model binding. Still better than having properties, I guess.
-#pragma warning disable CA1822
-// ReSharper disable MemberCanBeMadeStatic.Global
-public class WikiLinks
-{
-    public string CyberpunkBlenderAddon => "https://github.com/WolvenKit/Cyberpunk-Blender-add-on";
-    public string WolvenKitSetupGuide => "https://wiki.redmodding.org/wolvenkit/getting-started/setup";
-    public string WolvenKitCreatingAModGuide => "https://wiki.redmodding.org/wolvenkit/getting-started/creating-a-mod";
-    public string DiscordInvitation => "https://discord.gg/Epkq79kd96";
-    public string AboutWolvenKit => "https://wiki.redmodding.org/wolvenkit/about";
-}
-// ReSharper enable MemberCanBeMadeStatic.Global
-#pragma warning restore CA1822
 
 public partial class MenuBarViewModel : ObservableObject
 {
@@ -27,15 +17,14 @@ public partial class MenuBarViewModel : ObservableObject
     public ISettingsManager SettingsManager { get; }
     public AppViewModel MainViewModel { get; }
 
-// this has to be a class for the sake of view model binding. Still better than having properties, I guess.
-    public readonly WikiLinks WikiLinks = new();
+    public WikiLinksInstance WikiLinks { get; } = new();
 
     public MenuBarViewModel(ISettingsManager settingsManager, AppViewModel appViewModel)
     {
         MainViewModel = appViewModel;
         SettingsManager = settingsManager;
         EnableRedmodCommands = settingsManager.ShowRedmodInRibbon;
-        
+
         MainViewModel.DockedViewVisibleChanged += MainViewModel_OnDockedViewVisibleChanged;
         SettingsManager.PropertyChanged += SettingsManager_PropertyChanged;
 
@@ -79,11 +68,29 @@ public partial class MenuBarViewModel : ObservableObject
     [RelayCommand]
     private void OpenGameFolder() => Commonfunctions.ShowFolderInExplorer(SettingsManager.GetRED4GameRootDir());
 
+    public Dictionary<string, List<string>> GenerateItemCodesFromYaml()
+    {
+        if (MainViewModel.ActiveProject is not { } project)
+        {
+            return [];
+        }
+        var files = MainViewModel.ProjectResourceTools.GetProjectFiles(".yaml", ProjectFolder.Resources);
+
+        Dictionary<string, List<string>> allItems = [];
+
+        foreach (var file in files)
+        {
+            allItems.AddRange(YamlHelper.GetItemRecordsFromYaml(project.GetAbsolutePath(file)));
+        }
+
+        return allItems;
+    }
+
     [ObservableProperty]
     private bool _projectExplorerCheckbox;
 
     [ObservableProperty] private bool _enableRedmodCommands;
-    
+
     partial void OnProjectExplorerCheckboxChanged(bool value)
     {
         if (_automaticUpdate)
@@ -105,7 +112,7 @@ public partial class MenuBarViewModel : ObservableObject
 
         MainViewModel.GetToolViewModel<AssetBrowserViewModel>().IsVisible = value;
     }
-    
+
     [ObservableProperty]
     private bool _propertiesCheckbox;
     partial void OnPropertiesCheckboxChanged(bool value)
@@ -163,6 +170,20 @@ public partial class MenuBarViewModel : ObservableObject
         {
             HasOpenProject = true;
         }
-    }        
-    
+    }
+
+    public void AddItemCodesToFiles(AddItemsToStoreDialogViewModel? dialogVm)
+    {
+        if (dialogVm is null || dialogVm.ItemCodes.Count == 0 ||
+            (string.IsNullOrEmpty(dialogVm.RedsPath) && string.IsNullOrEmpty(dialogVm.YamlPath)))
+        {
+            return;
+        }
+
+        MainViewModel.ProjectResourceTools.AddItemCodesToStoreFiles(
+            dialogVm.ItemCodes,
+            dialogVm.YamlPath,
+            dialogVm.RedsPath
+        );
+    }
 }

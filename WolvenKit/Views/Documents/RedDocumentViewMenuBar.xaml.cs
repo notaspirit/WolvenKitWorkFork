@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using HandyControl.Tools.Extension;
 using ReactiveUI;
 using Splat;
 using WolvenKit.App;
@@ -27,6 +28,7 @@ using WolvenKit.Common.Services;
 using WolvenKit.Core.Exceptions;
 using WolvenKit.Core.Interfaces;
 using WolvenKit.Core.Services;
+using WolvenKit.RED4.Archive.CR2W;
 using WolvenKit.RED4.Types;
 using WolvenKit.Views.Dialogs.Windows;
 using appearanceAppearanceDefinition = WolvenKit.RED4.Types.appearanceAppearanceDefinition;
@@ -49,6 +51,7 @@ namespace WolvenKit.Views.Documents
         private readonly IProgressService<double> _progressService;
         private readonly ProjectResourceTools _projectResourceTools;
         private readonly DocumentTools _documentTools;
+        private readonly CvmMaterialTools _cvmMaterialTools;
         private readonly Cr2WTools _cr2WTools;
 
 
@@ -65,6 +68,7 @@ namespace WolvenKit.Views.Documents
             _projectExplorer = Locator.Current.GetService<ProjectExplorerViewModel>()!;
             _projectResourceTools = Locator.Current.GetService<ProjectResourceTools>()!;
             _cr2WTools = Locator.Current.GetService<Cr2WTools>()!;
+            _cvmMaterialTools = Locator.Current.GetService<CvmMaterialTools>()!;
 
             _appViewModel = Locator.Current.GetService<AppViewModel>()!;
 
@@ -82,6 +86,7 @@ namespace WolvenKit.Views.Documents
                 _projectManager,
                 _documentTools,
                 Locator.Current.GetService<CRUIDService>()!,
+                _cvmMaterialTools,
                 _loggerService) { CurrentTab = _currentTab };
             ViewModel = DataContext as RedDocumentViewToolbarModel;
 
@@ -178,6 +183,9 @@ namespace WolvenKit.Views.Documents
 
         private ChunkViewModel? RootChunk => ViewModel?.RootChunk;
 
+        /// <summary>
+        /// Scans for broken references in the current file
+        /// </summary>
         private async void OnFindBrokenReferencesClick(object _, RoutedEventArgs e)
         {
             try
@@ -189,13 +197,13 @@ namespace WolvenKit.Views.Documents
 
                 _loggerService.Info(
                     "Scanning file for broken references. This is currently slow as foretold, please hold the line...");
+
                 var allReferences = await _projectManager.ActiveProject.GetAllReferencesAsync(
                     _progressService,
-                    _loggerService,
-                    [s.Replace($"{_projectManager.ActiveProject.ModDirectory}{Path.DirectorySeparatorChar}", "")]
+                    _loggerService
                 );
 
-                var brokenReferences = await _projectManager.ActiveProject.ScanForBrokenReferencePathsAsync(
+                var brokenReferences = await _projectManager.ActiveProject.ScanForBrokenReferencePathsInListAsync(
                     _archiveManager,
                     _loggerService,
                     _progressService,
@@ -209,12 +217,18 @@ namespace WolvenKit.Views.Documents
                 }
 
                 _loggerService.Info("Done!");
-                Interactions.ShowBrokenReferencesList(("Broken references", brokenReferences));
+                Interactions.ShowDictionaryAsCopyableList(("Broken references",
+                    $"The following {brokenReferences.Count} files seem to hold broken references", brokenReferences,
+                    true));
             }
             catch (Exception err)
             {
                 _loggerService.Error("Error while scanning for broken references:");
                 _loggerService.Error(err);
+            }
+            finally
+            {
+                _progressService.IsIndeterminate = false;
             }
         }
 
@@ -260,7 +274,7 @@ namespace WolvenKit.Views.Documents
             var isLocal = dialog.ViewModel?.IsLocalMaterial ?? true;
             var resolveSubstitutions = dialog.ViewModel?.ResolveSubstitutions ?? false;
 
-            cvm.GenerateMissingMaterials(baseMaterial, isLocal, resolveSubstitutions);
+            _cvmMaterialTools.GenerateMissingMaterials(cvm, baseMaterial, isLocal, resolveSubstitutions);
 
             cvm.Tab?.Parent.SetIsDirty(true);
         }
@@ -282,9 +296,8 @@ namespace WolvenKit.Views.Documents
             var files = _documentTools.CollectProjectFiles(".mesh").Where(f => f != ViewModel.FilePath)
                 .ToList();
 
-            if (Interactions.AskForDropdownOption((files, "Select .mesh file", "Select .mesh file",
-                    WikiLinks.MeshMaterials, true, "From ArchiveXL patch mesh")) is not string meshFileName ||
-                string.IsNullOrEmpty(meshFileName))
+
+            if (Interactions.ShowCopyMeshAppearancesDialogue(files) is not { } dialog)
             {
                 return;
             }
@@ -292,11 +305,11 @@ namespace WolvenKit.Views.Documents
             try
             {
                 // Only reload if we wrote anything
-                if (_documentTools.CopyMeshMaterials(meshFileName, ViewModel.FilePath))
+                if (_documentTools.CopyMeshMaterials(dialog.SelectedOption, ViewModel.FilePath, dialog.IsAppend))
                 {
                     ViewModel.CurrentTab?.Parent.Reload(true);
                 }
-                else if (meshFileName == SelectDropdownEntryDialogViewModel.ButtonClickResult)
+                else if (dialog.UseArchiveXlPatchMesh)
                 {
                     _loggerService.Error(
                         "Failed to copy mesh materials from patch mesh. Try picking a mesh, or adding the file path directly.");
@@ -340,7 +353,7 @@ namespace WolvenKit.Views.Documents
                 return;
             }
 
-            var failedMeshes = selected.Where(mesh => !_documentTools.CopyMeshMaterials(currentPath, mesh)).ToList();
+            var failedMeshes = selected.Where(mesh => !_documentTools.CopyMeshMaterials(currentPath, mesh, false)).ToList();
 
             var output = StringHelper.Stringify(selected.Where(s => !failedMeshes.Contains(s)).ToList(), true);
 
@@ -354,109 +367,8 @@ namespace WolvenKit.Views.Documents
 
         private void UnDynamifyMaterials(ChunkViewModel? cvm)
         {
-            if (cvm?.ResolvedData is not CMesh mesh ||
-                cvm.GetPropertyChild("appearances") is not ChunkViewModel appearances)
-            {
-                return;
-            }
-
-            cvm.ConvertPreloadMaterialsCommand.Execute(null);
-
-            appearances.CalculatePropertiesRecursive();
-
-            var templatesAndValues = ArchiveXlHelper.GetMaterialSubstitutionMap(mesh.Appearances);
-
-            // nothing to do here
-            if (templatesAndValues.Count == 0)
-            {
-                return;
-            }
-
-            var expandedData = ArchiveXlHelper.ExpandAppearanceTemplate(mesh.Appearances);
-            appearances.Data = ArchiveXlHelper.UnDynamifyChunkNames(expandedData);
-
-            appearances.RecalculateProperties();
-
-            cvm.GetPropertyChild("materials")?.CalculateProperties();
-            cvm.GetPropertyChild("localMaterialBuffer", "materials")?.CalculateProperties();
-
-            // iterate over dictionary and create new materials
-            foreach (var (matName, resolvedMatNames) in templatesAndValues)
-            {
-                var material = mesh.MaterialEntries.FirstOrDefault(m => m.Name == $"@{matName}");
-                if (material is null || mesh.LocalMaterialBuffer.Materials.Count < material.Index)
-                {
-                    _loggerService.Warning($"Can't un-dynamify material: Failed to resolve {matName}");
-                    continue;
-                }
-
-                var matInstance = (CMaterialInstance)mesh.LocalMaterialBuffer.Materials[material.Index];
-                var baseMaterialPath = matInstance.BaseMaterial.DepotPath.GetResolvedText() ?? "";
-
-                var maxIndex = mesh.MaterialEntries.Where(m => m.IsLocalInstance.Equals(material.IsLocalInstance))
-                    .Select(m => m.Index).Max();
-
-                foreach (var newMatName in resolvedMatNames.Distinct())
-                {
-                    maxIndex += 1;
-                    mesh.MaterialEntries.Add(new CMeshMaterialEntry()
-                    {
-                        Name = $"{matName}_{newMatName}", Index = maxIndex, IsLocalInstance = material.IsLocalInstance
-                    });
-
-                    var newMaterialInstance = new CMaterialInstance()
-                    {
-                        BaseMaterial = new CResourceReference<IMaterial>(
-                            baseMaterialPath.Replace("{material}", newMatName).Replace("*", ""),
-                            InternalEnums.EImportFlags.Default),
-                    };
-
-                    foreach (var cvp in matInstance.Values)
-                    {
-                        var value = cvp.Value switch
-                        {
-                            CResourceReference<Multilayer_Setup> mlsetup => new CResourceReference<Multilayer_Setup>(
-                                ReplaceMaterialPath(mlsetup.DepotPath, newMatName), InternalEnums.EImportFlags.Default),
-                            CResourceReference<Multilayer_Mask> mlmask => new CResourceReference<Multilayer_Mask>(
-                                ReplaceMaterialPath(mlmask.DepotPath, newMatName), InternalEnums.EImportFlags.Default),
-                            CResourceReference<ITexture> tex => new CResourceReference<ITexture>(
-                                ReplaceMaterialPath(tex.DepotPath, newMatName), InternalEnums.EImportFlags.Default),
-                            CResourceAsyncReference<Multilayer_Setup> mlsetup => new
-                                CResourceAsyncReference<Multilayer_Setup>(
-                                    ReplaceMaterialPath(mlsetup.DepotPath, newMatName),
-                                    InternalEnums.EImportFlags.Default),
-                            CResourceAsyncReference<Multilayer_Mask> mlmask => new
-                                CResourceAsyncReference<Multilayer_Mask>(
-                                    ReplaceMaterialPath(mlmask.DepotPath, newMatName),
-                                    InternalEnums.EImportFlags.Default),
-                            CResourceAsyncReference<ITexture> tex => new CResourceAsyncReference<ITexture>(
-                                ReplaceMaterialPath(tex.DepotPath, newMatName), InternalEnums.EImportFlags.Default),
-                            IRedResourceReference val => new CResourceReference<CResource>(
-                                ReplaceMaterialPath(val.DepotPath, newMatName), InternalEnums.EImportFlags.Default),
-                            IRedResourceAsyncReference asyncVal => new CResourceAsyncReference<CResource>(
-                                ReplaceMaterialPath(asyncVal.DepotPath, newMatName),
-                                InternalEnums.EImportFlags.Default),
-                            _ => cvp.Value
-                        };
-
-                        newMaterialInstance.Values.Add(new CKeyValuePair(cvp.Key, value));
-                    }
-
-                    mesh.LocalMaterialBuffer.Materials.Add(newMaterialInstance);
-                }
-            }
-
-            cvm.GetPropertyChild("materialEntries")?.RecalculateProperties();
-            cvm.GetPropertyChild("localMaterialBuffer", "materials")?.RecalculateProperties();
-
-            cvm.DeleteUnusedMaterialsCommand.Execute(true);
-            cvm.Tab?.Parent.SetIsDirty(true);
-
+            _cvmMaterialTools.UnDynamifyMaterials(cvm);
             ViewModel?.DeleteUnusedMaterialsCommand?.NotifyCanExecuteChanged();
-            return;
-
-            static string ReplaceMaterialPath(ResourcePath? depotPath, string newMatName) =>
-                (depotPath?.GetResolvedText() ?? "").Replace("{material}", newMatName).Replace("*", "");
         }
 
         private void OnUnDynamifyMaterialsClick(object _, RoutedEventArgs e) => UnDynamifyMaterials(RootChunk);
@@ -624,144 +536,129 @@ namespace WolvenKit.Views.Documents
         private string GetTextureDirForDependencies(bool useTextureSubfolder) =>
             ViewModel?.GetTextureDirForDependencies(useTextureSubfolder) ?? "";
 
-        // If this is static, we can't use Path.Join
-        private readonly List<string> _ignoredDependencyPartials =
-        [
-            ".mltemplate",
-            ".mt",
-            ".remt",
-            Path.Join("base", "surfaces", "microblends"),
-            Path.Join("base", "materials"),
-            Path.Join("base", "fx"),
-            Path.Join("ep1", "materials"),
-            Path.Join("ep1", "fx"),
-            "engine",
-        ];
-
-        private readonly SemaphoreSlim _semaphore = new(1, 1); //  only one thread/task can enter
-
-        private async Task AddDependenciesToFileAsync(ChunkViewModel _, bool addBasegameFiles = false)
+        private async Task AddDependenciesToFileAsync(ChunkViewModel rootChunk, bool addBasegameFiles = false)
         {
-            if (RootChunk is not ChunkViewModel rootChunk ||
-                RootChunk.ResolvedData is not (CMesh or Multilayer_Setup or CMaterialInstance))
+            if (rootChunk.ResolvedData is not (CMesh or Multilayer_Setup or CMaterialInstance))
             {
                 return;
             }
 
-            // Wait asynchronously to acquire the semaphore
-            if (!await _semaphore.WaitAsync(500))
+            if (rootChunk.ResolvedData is CMesh mesh)
             {
-                _loggerService.Info("Already adding dependencies! Please wait for the current run to proceed!");
-                return;
+                UnDynamifyMaterials(rootChunk);
+                ViewModel?.CurrentTab?.Parent.Save(null);
             }
 
-            try
-            {
-                if (rootChunk.ResolvedData is CMesh mesh)
-                {
-                    UnDynamifyMaterials(rootChunk);
-                }
-                RootChunk.ForceLoadPropertiesRecursive();
-                rootChunk.DeleteUnusedMaterialsCommand.Execute(true);
+            rootChunk.ForceLoadPropertiesRecursive();
 
-                await LoadAndAnalyzeModArchivesAsync();
+            _cvmMaterialTools.DeleteUnusedMaterials(rootChunk, null, true);
+            rootChunk.Tab?.Parent.Save(null);
 
-                var materialDependencies = await rootChunk.GetMaterialRefsFromFile();
+            await LoadAndAnalyzeModArchivesAsync();
 
-                // Filter files: Ignore base game files unless shift key is pressed
-                materialDependencies = materialDependencies
-                    .Where(refPathHash =>
+            var materialDependencies = await CvmMaterialTools.GetMaterialRefsFromFile(rootChunk);
+            await rootChunk.GetMaterialRefsFromFile();
+
+            // Throw in anything found in .mi files
+            var miDependencies = materialDependencies.Select(p => p.GetResolvedText()).OfType<string>()
+                .Where(p => p.EndsWith(".mi"))
+                .Select(p => _archiveManager.GetCR2WFile(p, true))
+                .OfType<CR2WFile>()
+                .SelectMany(miCr2W => _projectResourceTools.GetDependencyPaths(miCr2W, true))
+                .ToList();
+
+            materialDependencies.AddRange(miDependencies);
+
+            // Filter files: Ignore base game files unless shift key is pressed
+            materialDependencies = materialDependencies
+                .Where(refPathHash =>
+                    {
+                        var hasModFile = _archiveManager.Lookup(refPathHash, ArchiveManagerScope.Mods) is
+                            { HasValue: true };
+                        var gameFileOpt = _archiveManager.Lookup(refPathHash, ArchiveManagerScope.Basegame);
+
+                        // Only files from mods. Filter out anything that overwrites basegame files.
+                        if (hasModFile && !gameFileOpt.HasValue)
                         {
-                            var hasModFile = _archiveManager.Lookup(refPathHash, ArchiveManagerScope.Mods) is
-                                { HasValue: true };
-                            var gameFileOpt = _archiveManager.Lookup(refPathHash, ArchiveManagerScope.Basegame);
-
-                            // Only files from mods. Filter out anything that overwrites basegame files.
-                            if (hasModFile && !gameFileOpt.HasValue)
-                            {
-                                return true;
-                            }
-
-                            return addBasegameFiles && gameFileOpt.HasValue && !IsIgnoredDependency(gameFileOpt.Value);
+                            return true;
                         }
-                    )
-                    .ToHashSet();
 
-                if (materialDependencies.Count == 0)
+                        return addBasegameFiles && gameFileOpt.HasValue &&
+                               !ProjectResourceTools.IsIgnoredDependency(gameFileOpt.Value);
+                    }
+                )
+                .ToHashSet();
+
+            if (materialDependencies.Count == 0)
+            {
+                _loggerService.Info(
+                    "Didn't find any dependencies to add.\n" +
+                    "To include base game files, hold shift while clicking the menu entry."
+                );
+                return;
+            }
+
+            var destFolder = GetTextureDirForDependencies(true);
+
+            if (string.IsNullOrEmpty(destFolder))
+            {
+                _loggerService.Info("Adding dependencies aborted by user input");
+                return;
+            }
+
+            // Use search and replace to fix file paths
+            var pathReplacements = await _projectResourceTools.AddDependenciesToProjectPathAsync(
+                destFolder, materialDependencies
+            );
+
+            // Nothing to replace in file - give user output
+            if (pathReplacements.Count is 0)
+            {
+                if (materialDependencies.Count > 0)
                 {
                     _loggerService.Info(
                         "Didn't find any dependencies to add.\n" +
-                        "To include base game files, hold shift while clicking the menu entry."
+                        "To include base game files, hold shift while clicking the menu entry." +
+                        "If modded files could not be resolved, click the scan button in the mod browser " +
+                        "(to the right of the search bar)."
                     );
-                    return;
                 }
-
-                var destFolder = GetTextureDirForDependencies(true);
-
-                if (string.IsNullOrEmpty(destFolder))
+                else
                 {
-                    _loggerService.Info("Adding dependencies aborted by user input");
-                    return;
+                    _loggerService.Success(
+                        "No dependencies left to replace. To double-check, run file validation now."
+                    );
                 }
 
-                // Use search and replace to fix file paths
-                var pathReplacements = await _projectResourceTools.AddDependenciesToProjectPathAsync(
-                    destFolder, materialDependencies
-                );
-
-                // Nothing to replace in file - give user output
-                if (pathReplacements.Count is 0)
-                {
-                    if (materialDependencies.Count > 0)
-                    {
-                        _loggerService.Info(
-                            "Didn't find any dependencies to add.\n" +
-                            "To include base game files, hold shift while clicking the menu entry." +
-                            "If modded files could not be resolved, click the scan button in the mod browser " +
-                            "(to the right of the search bar)."
-                        );
-                    }
-                    else
-                    {
-                        _loggerService.Success(
-                            "No dependencies left to replace. To double-check, run file validation now."
-                        );
-                    }
-
-                    return;
-                }
-
-                switch (rootChunk.ResolvedData)
-                {
-                    case CMaterialInstance:
-                        await SearchAndReplaceInChildNodesAsync(rootChunk, pathReplacements, "values");
-                        break;
-                    case Multilayer_Setup:
-                        await SearchAndReplaceInChildNodesAsync(rootChunk, pathReplacements, "layers");
-                        break;
-                    case CMesh:
-                        await SearchAndReplaceInChildNodesAsync(rootChunk, pathReplacements,
-                            ChunkViewModel.LocalMaterialBufferPath,
-                            ChunkViewModel.ExternalMaterialPath,
-                            ChunkViewModel.PreloadMaterialPath,
-                            ChunkViewModel.PreloadExternalMaterialPath
-                        );
-                        break;
-                    default:
-                        break;
-                }
+                return;
             }
-            finally
+
+            switch (rootChunk.ResolvedData)
             {
-                _semaphore.Release();
+                case CMaterialInstance:
+                    await SearchAndReplaceInChildNodesAsync(rootChunk, pathReplacements, "values");
+                    break;
+                case Multilayer_Setup:
+                    await SearchAndReplaceInChildNodesAsync(rootChunk, pathReplacements, "layers");
+                    break;
+                case CMesh:
+                    await SearchAndReplaceInChildNodesAsync(rootChunk, pathReplacements,
+                        ChunkViewModel.LocalMaterialBufferPath,
+                        ChunkViewModel.ExternalMaterialPath,
+                        ChunkViewModel.PreloadMaterialPath,
+                        ChunkViewModel.PreloadExternalMaterialPath
+                    );
+                    break;
+                default:
+                    break;
             }
 
-            return;
-            bool IsIgnoredDependency(IGameFile gameFile)
+            if (_projectManager.ActiveProject is not { } project)
             {
-                return _ignoredDependencyPartials.Contains(gameFile.Extension) ||
-                       _ignoredDependencyPartials.Any(p => gameFile.FileName.StartsWith(p));
+                return;
             }
+
+            await _projectResourceTools.ReplacePathInProjectAsync(project, pathReplacements, ".mi");
         }
 
         private static async Task SearchAndReplaceInChildNodesAsync(ChunkViewModel cvm,
@@ -779,7 +676,8 @@ namespace WolvenKit.Views.Documents
 
             cvm.CalculateProperties();
 
-            foreach (var child in propertyPaths.Select(cvm.GetPropertyFromPath).OfType<ChunkViewModel>())
+            foreach (var child in propertyPaths.Select((p) => cvm.GetPropertyChild(p.Split('.')))
+                         .OfType<ChunkViewModel>())
             {
                 child.CalculateProperties();
                 childNodes.AddRange(child.TVProperties);
@@ -800,7 +698,6 @@ namespace WolvenKit.Views.Documents
                     dirtyNodes.Add(childNode);
                     isDirty = true;
                 }
-
             }));
 
             // Wait for dirty nodes to refresh themselves
@@ -850,12 +747,28 @@ namespace WolvenKit.Views.Documents
             });
         }
 
+        private readonly SemaphoreSlim _addDependencySemaphore = new(1, 1);
+
+
         private async void OnAddDependencies(object? _, EventArgs eventArgs)
         {
             try
             {
+                // Wait asynchronously to acquire the semaphore
+                if (!await _addDependencySemaphore.WaitAsync(500))
+                {
+                    return;
+                }
+
                 if (_projectManager.ActiveProject is null || ViewModel?.RootChunk is not ChunkViewModel cvm)
                 {
+                    return;
+                }
+
+                if (ViewModel?.CurrentTab?.Parent.IsDirty == true)
+                {
+                    await Interactions.ShowPopupAsync("Please save your file before adding dependencies.",
+                        "Save your file");
                     return;
                 }
 
@@ -866,13 +779,6 @@ namespace WolvenKit.Views.Documents
                 {
                     await Interactions.ShowPopupAsync("Please run ArchiveXL -> Un-dynamify materials first.",
                         "Dynamic materials found!");
-                    return;
-                }
-
-                if (ViewModel.CurrentTab?.Parent.IsDirty == true)
-                {
-                    await Interactions.ShowPopupAsync("Please save your file before adding dependencies.",
-                        "Save your file");
                     return;
                 }
 
@@ -887,6 +793,15 @@ namespace WolvenKit.Views.Documents
             }
             finally
             {
+                try
+                {
+                    _addDependencySemaphore.Release(1);
+                }
+                catch
+                {
+                    // Don't release?
+                }
+
                 // Project browser will throw an error if we do it immediately - so let's not
                 await Task.Run(async () =>
                 {
@@ -1213,8 +1128,9 @@ namespace WolvenKit.Views.Documents
                 }
 
                 _loggerService.Info("Done!");
-                Interactions.ShowBrokenReferencesList(("Unused files in project (extensions: ",
-                    new Dictionary<string, List<string>>() { { relativePath, unusedPaths } }));
+                Interactions.ShowDictionaryAsCopyableList(("Unused files in project (extensions: ",
+                    $"The following files seem to be unused in your project",
+                    new Dictionary<string, List<string>>() { { relativePath, unusedPaths } }, true));
             }
             catch (Exception ex)
             {

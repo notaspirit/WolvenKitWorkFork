@@ -17,6 +17,7 @@ using WolvenKit.App.ViewModels.Tools;
 using WolvenKit.Common.Services;
 using WolvenKit.Views.Dialogs;
 using WolvenKit.Views.Dialogs.Windows;
+using WolvenKit.Views.Templates;
 using MessageBoxResult = AdonisUI.Controls.MessageBoxResult;
 
 namespace WolvenKit.Views.Shell
@@ -47,11 +48,28 @@ namespace WolvenKit.Views.Shell
                 Interactions.ShowConfirmation = ShowConfirmation;
                 Interactions.ShowSaveUnsavedChangesDialog = ShowSaveUnsavedChangesDialog;
                 Interactions.ShowQuestionYesNo = ShowQuestionYesNo;
+                Interactions.ShowQuestionYesNoCancel = ShowQuestionYesNoCancel;
+                Interactions.ShowGenerateTranslationEntry = (_) =>
+                {
+                    var dialog = new LocalizationStringPopup();
+                    if (dialog.ViewModel is not null && dialog.ShowDialog(this) == true)
+                    {
+                        return dialog.ViewModel;
+                    }
+
+                    return null;
+                };
+
+                Interactions.ShowErrorPopup = (args) =>
+                {
+                    ShowConfirmation((args.text, args.caption, WMessageBoxImage.Error, WMessageBoxButtons.Ok));
+                    return true;
+                };
 
                 Interactions.ShowPopupWithWeblink = ShowConfirmationWithLink;
                 Interactions.ShowDeleteOrDuplicateComponentDialogue = (args) =>
                 {
-                    var dialog = new DeleteOrDuplicateComponentDialog(args.Item1, args.Item2);
+                    var dialog = new DeleteOrDuplicateComponentDialog(args.componentNames, args.isDeleting);
                     if (dialog.ViewModel is not null && dialog.ShowDialog(this) == true)
                     {
                         return dialog.ViewModel;
@@ -70,6 +88,31 @@ namespace WolvenKit.Views.Shell
                     }
 
                     return true;
+                };
+
+                Interactions.ShowArchiveXlFilesView = currentProject =>
+                {
+                    AddArchiveXlFilesDialog dialog = new(currentProject);
+
+                    if (dialog.ShowDialog(this) != true)
+                    {
+                        return null;
+                    }
+
+                    return dialog.ViewModel?.CollectItemInfo();
+                };
+
+
+                Interactions.ShowNewPlayerHeadView = () =>
+                {
+                    ShowNewPlayerHeadDialog dialog = new();
+
+                    if (dialog.ShowDialog(this) != true)
+                    {
+                        return null;
+                    }
+
+                    return dialog.ViewModel;
                 };
 
                 Interactions.ShowSelectSaveView = currentSaveGame =>
@@ -93,6 +136,18 @@ namespace WolvenKit.Views.Shell
                     }
 
                     return true;
+                };
+
+                Interactions.CreateOrEditRadioDialog = project =>
+                {
+                    AddRadioExtFilesDialog dialog = new(project, ViewModel.TemplateFileTools);
+
+                    if (dialog.ShowDialog(this) != true)
+                    {
+                        return null;
+                    }
+
+                    return dialog.ViewModel;
                 };
 
                 Interactions.ShowCollectionView = input =>
@@ -139,6 +194,28 @@ namespace WolvenKit.Views.Shell
                     return dialog.ViewModel;
                 };
 
+                Interactions.ShowGeneratePropFileModel = (activeProject) =>
+                {
+                    var dialog = new AddPropFileDialog(activeProject);
+                    if (dialog.ShowDialog() != true)
+                    {
+                        return null;
+                    }
+
+                    return dialog.ViewModel;
+                };
+
+                Interactions.ShowCopyMeshAppearancesDialogue = (options) =>
+                {
+                    var dialog = new CopyMeshAppearancesDialog(options);
+                    if (dialog.ShowDialog() != true)
+                    {
+                        return null;
+                    }
+
+                    return dialog.ViewModel;
+                };
+
                 Interactions.ShowChecklistDialogue = (args) =>
                 {
                     var dialog = new ShowChecklistDialog(
@@ -147,6 +224,17 @@ namespace WolvenKit.Views.Shell
                         args.text,
                         args.inputFieldLabel,
                         args.inputFieldDefaultValue);
+                    if (dialog.ShowDialog() != true)
+                    {
+                        return null;
+                    }
+
+                    return dialog.ViewModel;
+                };
+
+                Interactions.AddItemsToStore = (project) =>
+                {
+                    var dialog = new AddItemsToStoreDialog(project);
                     if (dialog.ShowDialog() != true)
                     {
                         return null;
@@ -188,24 +276,39 @@ namespace WolvenKit.Views.Shell
             return messageResult == WMessageBoxResult.Yes;
         }
 
+        private static bool? ShowQuestionYesNoCancel((string, string) input)
+        {
+            var messageResult = ShowConfirmation((input.Item1, input.Item2, WMessageBoxImage.Question,
+                WMessageBoxButtons.YesNoCancel));
+
+            switch (messageResult)
+            {
+                case WMessageBoxResult.Yes:
+                    return true;
+                case WMessageBoxResult.Cancel:
+                    return null;
+                case WMessageBoxResult.No:
+                default:
+                    return false;
+            }
+        }
+
         // local methods
         private static AdonisUI.Controls.MessageBoxImage GetAdonisImage(WMessageBoxImage imageParam) =>
             (AdonisUI.Controls.MessageBoxImage)imageParam;
 
-        private static WMessageBoxResult ShowConfirmation((string, string, WMessageBoxImage, WMessageBoxButtons) input)
+        private static WMessageBoxResult ShowConfirmation(
+            (string text, string caption, WMessageBoxImage image, WMessageBoxButtons buttons) input)
         {
-            var text = input.Item1;
-            var caption = input.Item2;
-            var image = input.Item3;
-            var buttons = input.Item4;
-
             MessageBoxModel messageBox = new()
             {
-                Text = text, Caption = caption, Icon = GetAdonisImage(image), Buttons = GetAdonisButtons(buttons)
+                Text = input.text,
+                Caption = input.caption,
+                Icon = GetAdonisImage(input.image),
+                Buttons = GetAdonisButtons(input.buttons)
             };
 
             return (WMessageBoxResult)AdonisUI.Controls.MessageBox.Show(Application.Current.MainWindow, messageBox);
-
 
             static IEnumerable<IMessageBoxButtonModel> GetAdonisButtons(WMessageBoxButtons buttonsParam)
             {
@@ -217,27 +320,27 @@ namespace WolvenKit.Views.Shell
                     WMessageBoxButtons.YesNo => MessageBoxButtons.YesNo(),
                     WMessageBoxButtons.YesNoCancel => MessageBoxButtons.YesNoCancel(),
                     WMessageBoxButtons.No => [MessageBoxButtons.No()],
-                    _ => throw new ArgumentOutOfRangeException(nameof(buttons)),
+                    _ => throw new ArgumentOutOfRangeException(nameof(input.buttons)),
                 };
             }
         }
 
         /// <inheritdoc cref="Interactions.ShowPopupWithWeblinkAsync"/>
         private static WMessageBoxResult ShowConfirmationWithLink(
-            (string, string, string, string, WMessageBoxImage) input)
+            (string text, string title, string weblink, string buttonText, WMessageBoxImage icon) input)
         {
             MessageBoxModel messageBox = new()
             {
-                Text = input.Item1,
-                Caption = input.Item2,
-                Buttons = [MessageBoxButtons.Custom(input.Item4), MessageBoxButtons.Ok()],
-                Icon = GetAdonisImage(input.Item5),
+                Text = input.text,
+                Caption = input.title,
+                Buttons = [MessageBoxButtons.Custom(input.buttonText), MessageBoxButtons.Ok()],
+                Icon = GetAdonisImage(input.icon),
             };
 
             var ret = AdonisUI.Controls.MessageBox.Show(Application.Current.MainWindow, messageBox);
-            if (ret == MessageBoxResult.Custom && input.Item3 is string link && !string.IsNullOrEmpty(link))
+            if (ret == MessageBoxResult.Custom && !string.IsNullOrEmpty(input.weblink))
             {
-                Process.Start(new ProcessStartInfo { FileName = link, UseShellExecute = true });
+                Process.Start(new ProcessStartInfo { FileName = input.weblink, UseShellExecute = true });
             }
 
             return (WMessageBoxResult)ret;

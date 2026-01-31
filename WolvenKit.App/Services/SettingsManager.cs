@@ -91,7 +91,8 @@ public partial class SettingsManager : ObservableObject, ISettingsManager
             nameof(NumFilesToReopen),
             nameof(ReopenFiles),
             nameof(ShowVerboseLogOutput),
-            nameof(IsDiscordRPCEnabled)
+            nameof(IsDiscordRPCEnabled),
+            nameof(UseAuthorNameAsSubfolder)
             )
           .Subscribe(_ =>
           {
@@ -288,11 +289,11 @@ public partial class SettingsManager : ObservableObject, ISettingsManager
 
     [Display(Name = "Auto Update On Startup", GroupName = "General")]
     [ObservableProperty]
-    private bool _autoUpdateOnStartup;
+    private bool _autoUpdateOnStartup = true;
 
     [Display(Name = "Always Ask Before Updating", GroupName = "General")]
     [ObservableProperty]
-    private bool _alwaysAskBeforeUpdating;
+    private bool _alwaysAskBeforeUpdating = true;
 
     [Display(Name = "Update Channel", GroupName = "General")]
     [ObservableProperty]
@@ -339,6 +340,12 @@ public partial class SettingsManager : ObservableObject, ISettingsManager
         GroupName = "Project")]
     [ObservableProperty]
     private int _numFilesToReopen;
+
+    [Display(Name = "Use author name for subfolders?",
+        Description = "Subfolders: Group by project author instead of project name where possible?",
+        GroupName = "Project")]
+    [ObservableProperty]
+    private bool _UseAuthorNameAsSubfolder;
 
     #endregion
 
@@ -399,6 +406,7 @@ public partial class SettingsManager : ObservableObject, ISettingsManager
         GroupName = "Interface")]
     [ObservableProperty]
     private bool _isDiscordRPCEnabled;
+
 
     [Display(Name = "Exclude archives from scan by name (comma separated)",
         Description = "Exclude archives from scan if you know that they'll lead to exceptions (only the base name)",

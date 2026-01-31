@@ -1,15 +1,17 @@
-using System.Collections;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using WolvenKit.App.Helpers;
 using WolvenKit.App.Models;
 using WolvenKit.Core.Extensions;
 using WolvenKit.RED4.Archive.Buffer;
 using WolvenKit.RED4.Types;
 using WolvenKit.RED4.Types.Pools;
+using static WolvenKit.RED4.Types.Enums;
 
 // ReSharper disable once CheckNamespace
 namespace WolvenKit.App.ViewModels.Shell;
@@ -56,6 +58,17 @@ public partial class ChunkViewModel
                 }
             }
         }
+        else if (DisplayAsEnumType != null && Data is IRedInteger ri)
+        {
+            if (EnumHelper.IsBitfield(DisplayAsEnumType))
+            {
+                Value = EnumHelper.RedIntToBitfieldString(DisplayAsEnumType, ri);
+            }
+            else
+            {
+                Value = EnumHelper.RedIntToEnumString(DisplayAsEnumType, ri);
+            }
+        }
         else if (PropertyType.IsAssignableTo(typeof(IRedEnum)) && Data is IRedEnum e)
         {
             Value = e.ToEnumString();
@@ -65,7 +78,7 @@ public partial class ChunkViewModel
             Value = f.ToBitFieldString();
         }
         else if (NodeIdxInParent > -1 && Parent?.Name == "referenceTracks" &&
-                 GetRootModel().GetPropertyFromPath("trackNames")?.ResolvedData is CArray<CName> trackNames)
+                 GetRootModel().GetPropertyChild("trackNames")?.ResolvedData is CArray<CName> trackNames)
         {
             Value = trackNames[NodeIdxInParent].GetResolvedText();
             IsValueExtrapolated = true;
@@ -407,9 +420,29 @@ public partial class ChunkViewModel
 
                 break;
 
+            case appearancePartComponentOverrides compOverride
+                when compOverride.MeshAppearance.GetResolvedText() is string s:
+                Value = string.Empty;
+                if (s is not ("default" or "None"))
+                {
+                    Value = s;
+                }
+
+                Value = StringHelper.AppendToString(Value, StringHelper.StringifyChunkMask(compOverride.ChunkMask),
+                    ' ');
+
+                IsValueExtrapolated = Value != string.Empty;
+                break;
             case meshMeshAppearance { ChunkMaterials: not null } appearance:
-                Value = string.Join(", ", appearance.ChunkMaterials);
-                Value = $"[{appearance.ChunkMaterials.Count}] {Value}";
+                if (appearance.ChunkMaterials.Count == 0 && appearance.Tags.Count == 1)
+                {
+                    Value = $"[0] (template: {appearance.Tags[0]})";
+                }
+                else
+                {
+                    Value = string.Join(", ", appearance.ChunkMaterials);
+                    Value = $"[{appearance.ChunkMaterials.Count}] {Value}";
+                }
                 IsValueExtrapolated = true;
                 break;
             case CArray<CHandle<meshMeshAppearance>> appearanceArray:
@@ -436,25 +469,26 @@ public partial class ChunkViewModel
                 IsValueExtrapolated = Value != "";
                 break;
             case CMatrix when Parent?.Name == "boneRigMatrices" &&
-                              GetRootModel().GetPropertyFromPath("boneNames")?.ResolvedData is CArray<CName> boneNames &&
+                              GetRootModel().GetPropertyChild("boneNames")?.ResolvedData is CArray<CName> boneNames &&
                               boneNames.Count > NodeIdxInParent:
                 Value = boneNames[NodeIdxInParent].GetResolvedText();
                 IsValueExtrapolated = Value != "";
                 break;
             case Vector4 when Parent?.Name == "bonePositions" &&
-                              GetRootModel().GetPropertyFromPath("boneNames")?.ResolvedData is CArray<CName> boneNames &&
+                              GetRootModel().GetPropertyChild("boneNames")?.ResolvedData is CArray<CName> boneNames &&
                               boneNames.Count > NodeIdxInParent:
                 Value = boneNames[NodeIdxInParent].GetResolvedText();
                 IsValueExtrapolated = Value != "";
                 break;
             case CFloat when Parent?.Name == "boneVertexEpsilons" &&
-                             GetRootModel().GetPropertyFromPath("boneNames")?.ResolvedData is CArray<CName> boneNames &&
+                             GetRootModel().GetPropertyChild("boneNames")?.ResolvedData is CArray<CName> boneNames &&
                              boneNames.Count > NodeIdxInParent:
                 Value = boneNames[NodeIdxInParent].GetResolvedText();
                 IsValueExtrapolated = Value != "";
                 break;
             case CInt16 boneIdx when Parent?.Name == "boneParentIndexes" &&
-                                     GetRootModel().GetPropertyFromPath("boneNames")?.ResolvedData is CArray<CName> boneNames &&
+                                     GetRootModel().GetPropertyChild("boneNames")?.ResolvedData is CArray<CName>
+                                         boneNames &&
                                      boneNames.Count > NodeIdxInParent:
                 Value = boneNames[NodeIdxInParent].GetResolvedText();
                 IsValueExtrapolated = Value != "";
@@ -639,12 +673,12 @@ public partial class ChunkViewModel
                 break;
             case graphGraphConnectionDefinition conn:
                 List<string> nameParts = [];
-                if (conn.Source.GetValue() is graphGraphSocketDefinition source)
+                if (conn.Source?.GetValue() is graphGraphSocketDefinition source)
                 {
                     nameParts.Add($"[{source.Connections.Count}] {source.Name.GetResolvedText()}");
                 }
 
-                if (conn.Destination.GetValue() is graphGraphSocketDefinition dest)
+                if (conn.Destination?.GetValue() is graphGraphSocketDefinition dest)
                 {
                     nameParts.Add($"[{dest.Connections.Count}] {dest.Name.GetResolvedText()}");
                 }
@@ -694,8 +728,12 @@ public partial class ChunkViewModel
                 IsValueExtrapolated = Value != "";
                 break;
             case CMaterialParameterInfo cInfoPar:
-                Value = cInfoPar.Type.ToString();
+                Value = EnumHelper.RedIntToEnumString(typeof(IMaterialDataProviderDescEParameterType), cInfoPar.Type);
                 IsValueExtrapolated = Value != "";
+                break;
+            case FeatureFlagsMask ffm:
+                Value = EnumHelper.RedIntToBitfieldString(typeof(EFeatureFlagMask), ffm.Flags);
+                IsValueExtrapolated = Value != "" && Value != "None";
                 break;
             case entTemplateAppearance entAppearance:
                 Value = StringHelper.Stringify(entAppearance.AppearanceResource.DepotPath);
@@ -1002,7 +1040,7 @@ public partial class ChunkViewModel
                 Value = gameEntRef.Reference.GetResolvedText();
                 IsValueExtrapolated = Value != "";
                 break;
-            case gameEntitySpawnerComponent when GetTvPropertyFromPath("slotDataArray") is ChunkViewModel sda:
+            case gameEntitySpawnerComponent when GetPropertyChild("slotDataArray") is ChunkViewModel sda:
                 Value = sda.Descriptor;
                 IsValueExtrapolated = Value != "";
                 break;
@@ -1181,6 +1219,30 @@ public partial class ChunkViewModel
                 Value = $"{animsetEntry.Rig.DepotPath.GetResolvedText() ?? "none"}";
                 IsValueExtrapolated = true;
                 break;
+            case gameJournalContact journalContact:
+                Value = journalContact.Id;
+                if (string.IsNullOrEmpty(Value))
+                {
+                    Value = journalContact.AvatarID.GetResolvedText() ?? "";
+                }
+
+                IsValueExtrapolated = Value != "";
+                break;
+            case gameJournalPhoneMessage phoneMessage:
+                Value = phoneMessage.Text.Value;
+                IsValueExtrapolated = Value != "";
+                break;
+            case gameJournalPhoneChoiceEntry phoneChoiceEntry:
+                Value = phoneChoiceEntry.Text.Value;
+                IsValueExtrapolated = Value != "";
+                break;
+            case gameJournalPhoneChoiceGroup choiceGroup:
+
+                Value = StringHelper.Stringify(choiceGroup.Entries.Select(e => e.Chunk)
+                    .OfType<gameJournalPhoneChoiceEntry>().Select(e => e.Text.Value)
+                    .ToList());
+                IsValueExtrapolated = Value != "";
+                break;
             case gameAudioEmitterComponent audioEmitter:
                 Value = $"{audioEmitter.EmitterName}";
                 IsValueExtrapolated = Value != "";
@@ -1198,8 +1260,12 @@ public partial class ChunkViewModel
                 Value = $"[ {string.Join(", ", list.Tags.ToList().Select(t => t.GetResolvedText() ?? "").ToArray())} ]";
                 IsValueExtrapolated = true;
                 break;
+            case entVisualTagsSchema { VisualTags: redTagList list }:
+                Value = $"[ {string.Join(", ", list.Tags.ToList().Select(t => t.GetResolvedText() ?? "").ToArray())} ]";
+                IsValueExtrapolated = true;
+                break;
             case physicsRagdollBodyInfo when
-                NodeIdxInParent > -1 && GetRootModel().GetPropertyFromPath("ragdollNames")?.ResolvedData is
+                NodeIdxInParent > -1 && GetRootModel().GetPropertyChild("ragdollNames")?.ResolvedData is
                     CArray<physicsRagdollBodyNames> ragdollNames:
                 var rN = ragdollNames[NodeIdxInParent];
                 Value = $"{rN.ParentAnimName.GetResolvedText() ?? ""} -> {rN.ChildAnimName.GetResolvedText() ?? ""}";

@@ -26,9 +26,9 @@
   </PropertyGroup>
 
   <PropertyGroup>
-    <VersionPrefix>8.17.1</VersionPrefix>
+    <VersionPrefix>8.17.2</VersionPrefix>
     <VersionSuffix>$(VersionSuffix)</VersionSuffix>
-    <InformationalVersion>8.17.1</InformationalVersion>
+    <InformationalVersion>8.17.2</InformationalVersion>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
   </PropertyGroup>
 
@@ -130,6 +130,11 @@
     <Compile Remove="GridVirtualizingCellsControl.xaml.cs" />
     <Page Remove="GridVirtualizingCellsControl.xaml" />
       <Compile Remove="Converters\BindingProxy.cs" />
+      <Page Update="Views\Dialogs\Windows\AddPropFileDialog.xaml">
+          <Generator>MSBuild:Compile</Generator>
+          <XamlRuntime>Wpf</XamlRuntime>
+          <SubType>Designer</SubType>
+      </Page>
   </ItemGroup>
   <ItemGroup>
     <Compile Remove="Views\Templates\RedFixedPointEditor.cs" />
@@ -1070,12 +1075,21 @@
     <Compile Update="Views\Templates\RedStringEditor.xaml.cs">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Update="Views\Templates\DisplayAsBitfieldEditor.xaml.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Update="Views\Templates\DisplayAsEnumEditor.xaml.cs">
+      <SubType>Code</SubType>
+    </Compile>
   </ItemGroup>
   <ItemGroup>
     <None Update="Properties\Settings.settings">
       <Generator>SettingsSingleFileGenerator</Generator>
       <LastGenOutput>Settings.Designer.cs</LastGenOutput>
     </None>
+    <Content Include="Resources\Media\Images\Placeholders\Error_ImageFormat.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </Content>
     <Content Include="Resources\Media\Images\Icons\Files\buffer.bmp">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
