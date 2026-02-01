@@ -32,37 +32,49 @@ def collect_text(element: ET.Element | None) -> str:
     return " ".join(element.itertext()).strip()
 
 
-def extract_docs(memberdef: ET.Element) -> str:
-    """Pull meaningful doc text from briefdescription and detaileddescription,
-    skipping empty <para> tags and the auto-generated parameter / return
-    sections that Doxygen adds (they are redundant with the signature)."""
-    lines: list[str] = []
+def extract_docs(memberdef: ET.Element) -> dict:
+    """Parse briefdescription and detaileddescription into three distinct buckets:
 
-    for section_tag in ("briefdescription", "detaileddescription"):
-        section = memberdef.find(section_tag)
-        if section is None:
-            continue
-        for para in section.iter("para"):
-            # Skip <para> that only contain a <parameterlist> or <simplesect kind="return">
-            # with no actual written text.
-            text_parts: list[str] = []
-            # Direct text of the <para>
-            if para.text and para.text.strip():
-                text_parts.append(para.text.strip())
-            for child in para:
-                # Skip auto-generated sections
-                if child.tag in ("parameterlist", "simplesect"):
-                    continue
-                text_parts.append(collect_text(child))
-                # Include any tail text after this child
-                if child.tail and child.tail.strip():
-                    text_parts.append(child.tail.strip())
+    Returns a dict:
+        summary – str, the high-level description from <briefdescription>
+        params  – list of (name: str, description: str) tuples, from <parameterlist>
+        returns – str, the return description from <simplesect kind="return">
+    """
+    # --- Summary: plain text from briefdescription <para> elements ----------
+    summary_parts: list[str] = []
+    brief = memberdef.find("briefdescription")
+    if brief is not None:
+        for para in brief.iter("para"):
+            text = collect_text(para).strip()
+            if text:
+                summary_parts.append(text)
+    summary = " ".join(summary_parts)
 
-            combined = " ".join(text_parts).strip()
-            if combined:
-                lines.append(combined)
+    # --- Params & Returns: live inside detaileddescription -----------------
+    params: list[tuple[str, str]] = []
+    returns: str = ""
 
-    return "\n".join(lines)
+    detailed = memberdef.find("detaileddescription")
+    if detailed is not None:
+        # <parameterlist kind="param"> → one <parameteritem> per param
+        for paramlist in detailed.iter("parameterlist"):
+            if paramlist.get("kind") != "param":
+                continue
+            for item in paramlist.findall("parameteritem"):
+                # Name is inside <parameternamelist><parametername>
+                name_el = item.find(".//parametername")
+                name = (name_el.text or "").strip() if name_el is not None else ""
+                # Description is inside <parameterdescription>
+                desc = collect_text(item.find("parameterdescription")).strip()
+                if name:
+                    params.append((name, desc))
+
+        # <simplesect kind="return"> → single return description
+        for simplesect in detailed.iter("simplesect"):
+            if simplesect.get("kind") == "return":
+                returns = collect_text(simplesect).strip()
+
+    return {"summary": summary, "params": params, "returns": returns}
 
 
 def build_signature(memberdef: ET.Element) -> str:
@@ -106,7 +118,7 @@ def build_signature(memberdef: ET.Element) -> str:
 
 def parse_class_xml(xml_path: Path) -> list[dict]:
     """Parse a single doxygen class XML file and return a list of method dicts,
-    each with keys: signature (str), docs (str)."""
+    each with keys: signature (str), docs (dict with summary/params/returns)."""
     tree = ET.parse(xml_path)
     root = tree.getroot()
 
@@ -123,20 +135,38 @@ def parse_class_xml(xml_path: Path) -> list[dict]:
 
 
 def generate_markdown(all_methods: list[dict], title: str = "API Reference") -> str:
-    """Turn the flat list of method dicts into a GitBook Markdown string."""
+    """Render each method with visually distinct sections for summary, params,
+    and return value."""
     md_lines: list[str] = [f"# {title}", ""]
 
     for method in all_methods:
-        # Doc comment block (/// style, rendered as a blockquote in GitBook)
-        if method["docs"]:
-            for doc_line in method["docs"].splitlines():
-                md_lines.append(f"> {doc_line}")
+        docs = method["docs"]
+
+        # Summary as a blockquote (only if present)
+        if docs["summary"]:
+            md_lines.append(f"> {docs['summary']}")
             md_lines.append("")
 
-        # Fenced code block with the signature
+        # Signature
         md_lines.append("```csharp")
         md_lines.append(method["signature"])
         md_lines.append("```")
+
+        # Parameters as a small table (only if any have descriptions)
+        if docs["params"]:
+            md_lines.append("")
+            md_lines.append("| Parameter | Description |")
+            md_lines.append("|-----------|-------------|")
+            for name, desc in docs["params"]:
+                # Escape any pipe characters in the description
+                desc_safe = desc.replace("|", "\\|") if desc else "—"
+                md_lines.append(f"| `{name}` | {desc_safe} |")
+
+        # Return value as a bold label + inline text
+        if docs["returns"]:
+            md_lines.append("")
+            md_lines.append(f"**Returns:** {docs['returns']}")
+
         md_lines.append("")  # blank line between entries
 
     return "\n".join(md_lines)
