@@ -39,3 +39,14 @@ jobs:
         with:
           name: wolvenkit-ts-defs
           path: out/*.d.ts
+
+      - name: Generate  markdown
+        run: |
+          mkdir -p out
+          python tools/doxygen_xml_to_md.py docs/xml out/wolvenkit.md
+                
+      - name: Upload md artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: wolvenkit-ts-defs
+          path: out/*.md
