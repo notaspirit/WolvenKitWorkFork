@@ -147,11 +147,6 @@ def generate_markdown(all_methods: list[dict], title: str = "API Reference") -> 
             md_lines.append(f"> {docs['summary']}")
             md_lines.append("")
 
-        # Signature
-        md_lines.append("```csharp")
-        md_lines.append(method["signature"])
-        md_lines.append("```")
-
         # Parameters as a small table (only if any have descriptions)
         if docs["params"]:
             md_lines.append("")
@@ -166,6 +161,11 @@ def generate_markdown(all_methods: list[dict], title: str = "API Reference") -> 
         if docs["returns"]:
             md_lines.append("")
             md_lines.append(f"**Returns:** {docs['returns']}")
+
+        # Signature
+        md_lines.append("```csharp")
+        md_lines.append(method["signature"])
+        md_lines.append("```")
 
         md_lines.append("")  # blank line between entries
 
