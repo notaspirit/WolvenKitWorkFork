@@ -112,19 +112,40 @@ def build_signature(memberdef: ET.Element) -> str:
     return signature
 
 
+def is_constructor(memberdef: ET.Element) -> bool:
+    """Doxygen marks constructors as functions with no <type> and where the
+    method name matches the last segment of the qualified class name."""
+    ret_type = collect_text(memberdef.find("type")).strip()
+    if ret_type:
+        return False  # constructors have no return type
+
+    name = (memberdef.findtext("name") or "").strip()
+    qualified = (memberdef.findtext("qualifiedname") or "").strip()
+
+    # qualifiedname can be "Namespace::Class::Method" or "Namespace.Class.Method"
+    # depending on language — normalise to a single separator before splitting
+    parts = qualified.replace("::", ".").split(".")
+    class_name = parts[-2] if len(parts) >= 2 else ""
+
+    return name == class_name
+
+
 # ---------------------------------------------------------------------------
 # Core
 # ---------------------------------------------------------------------------
 
 def parse_class_xml(xml_path: Path) -> list[dict]:
     """Parse a single doxygen class XML file and return a list of method dicts,
-    each with keys: signature (str), docs (dict with summary/params/returns)."""
+    each with keys: signature (str), docs (dict with summary/params/returns).
+    Constructors are skipped."""
     tree = ET.parse(xml_path)
     root = tree.getroot()
 
     methods: list[dict] = []
     for memberdef in root.iter("memberdef"):
         if memberdef.get("kind") != "function":
+            continue
+        if is_constructor(memberdef):
             continue
 
         signature = build_signature(memberdef)
