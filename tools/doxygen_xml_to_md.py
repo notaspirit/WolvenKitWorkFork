@@ -145,7 +145,6 @@ def generate_markdown(all_methods: list[dict], title: str = "API Reference") -> 
         # Summary as a blockquote (only if present)
         if docs["summary"]:
             md_lines.append(f"> {docs['summary']}")
-            md_lines.append("")
 
         # Parameters as a small table (only if any have descriptions)
         if docs["params"]:
@@ -168,6 +167,8 @@ def generate_markdown(all_methods: list[dict], title: str = "API Reference") -> 
         md_lines.append("```")
 
         md_lines.append("")  # blank line between entries
+        md_lines.append("---")
+        md_lines.append("")
 
     return "\n".join(md_lines)
 
