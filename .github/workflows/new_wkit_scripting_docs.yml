@@ -48,5 +48,5 @@ jobs:
       - name: Upload md artifact
         uses: actions/upload-artifact@v4
         with:
-          name: wolvenkit-ts-defs
+          name: wolvenkit-md
           path: out/*.md
