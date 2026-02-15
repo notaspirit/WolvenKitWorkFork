@@ -68,7 +68,7 @@ jobs:
       - name: Validate API Docs File
         run: |
           cd WolvenKit-8-Wiki/wolvenkit-app/wscript
-          grep -Fq '{% hint style="info" %} The following method list is auto-generated from WolvenKit Source. {% endhint %}' api-documentation.md
+          grep -Fq 'The following method list is auto-generated from WolvenKit Source.' api-documentation.md
     
       - name: Update WScript API Docs
         run: |
