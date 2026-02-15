@@ -18,7 +18,6 @@ import os
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -158,7 +157,7 @@ def parse_class_xml(xml_path: Path) -> list[dict]:
 def generate_markdown(all_methods: list[dict]) -> str:
     """Render each method with visually distinct sections for summary, params,
     and return value."""
-    md_lines: list[str] = [f"# WScript API Documentation", "{% hint style=\"info\" %} This page is auto-generated from WolvenKit Source. {% endhint %}", ""]
+    md_lines: list[str] = []
 
     for method in all_methods:
         docs = method["docs"]
