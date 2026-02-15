@@ -5,9 +5,6 @@ on:
     branches: [ main ]
   workflow_dispatch:
 
-env:
-  AUTOGEN_MARKER: '{% hint style="info" %} The following method list is auto-generated from WolvenKit Source. {% endhint %}'
-
 jobs:
   doxygen-json:
     runs-on: ubuntu-latest
@@ -68,13 +65,13 @@ jobs:
       - name: Validate API Docs File
         run: |
           cd WolvenKit-8-Wiki/wolvenkit-app/wscript
-          grep -Fq "$AUTOGEN_MARKER" api-documentation.md
+          grep -Fq "<!-- AUTOGEN_MARKER_START -->" api-documentation.md
     
       - name: Update WScript API Docs
         run: |
           cd WolvenKit-8-Wiki/wolvenkit-app/wscript
           awk '
-            $AUTOGEN_MARKER {
+            <!-- AUTOGEN_MARKER_START --> {
             print
             system("cat generated.md")
             exit
