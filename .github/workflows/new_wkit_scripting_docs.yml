@@ -71,9 +71,9 @@ jobs:
         run: |
           cd WolvenKit-8-Wiki/wolvenkit-app/wscript
           awk '
-            <!-- AUTOGEN_MARKER_START --> {
+          /<!-- AUTOGEN_MARKER_START -->/ {
             print
-            system("cat generated.md")
+            system("cat ../../../out/wolvenkit.md")
             exit
           }
           { print }
