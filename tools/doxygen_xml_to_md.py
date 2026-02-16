@@ -24,7 +24,7 @@ from collections import defaultdict
 # ---------------------------------------------------------------------------
 
 # GitBook requires filename prefix for anchor links
-GITBOOK_FILENAME = "api-documentation.md"  # Change this to match your output filename
+GITBOOK_FILENAME = "README.md"  # Change this to match your output filename
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -284,14 +284,15 @@ def generate_markdown(all_methods: list[dict], class_summaries: dict) -> str:
             md_lines.append(class_summaries[class_name])
             md_lines.append("")
         
-        # List of methods with their summaries (aligned using HTML table)
-        md_lines.append('<table>')
-        md_lines.append('<tr><td width="300"><b>Method</b></td><td><b>Description</b></td></tr>')
+        # List of methods with their summaries (aligned using markdown table)
+        md_lines.append("| Method | Description |")
+        md_lines.append("|--------|-------------|")
         for method in unique_methods:
             method_anchor = make_anchor(f"{class_name} {method['method_name']}")
             summary = method["docs"]["summary"] or "No description available."
-            md_lines.append(f'<tr><td><code><a href="{GITBOOK_FILENAME}#{method_anchor}">{method["method_name"]}</a></code></td><td>{summary}</td></tr>')
-        md_lines.append('</table>')
+            # Escape pipe characters in summary
+            summary_safe = summary.replace("|", "\\|")
+            md_lines.append(f'| [{method["method_name"]}]({GITBOOK_FILENAME}#{method_anchor}) | {summary_safe} |')
         md_lines.append("")
         
     md_lines.append("---")
