@@ -347,8 +347,6 @@ def generate_markdown(all_methods: list[dict], class_summaries: dict) -> str:
             md_lines.append("")
             
         md_lines.append("")
-        md_lines.append("---")
-        md_lines.append("")
     
     return "\n".join(md_lines)
 
