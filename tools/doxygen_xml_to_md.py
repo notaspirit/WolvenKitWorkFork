@@ -109,17 +109,17 @@ def build_signature(memberdef: ET.Element) -> str:
     return signature
 
 
-def extract_namespace(memberdef: ET.Element) -> str:
-    """Extract the namespace from the qualified name.
-    If there's no namespace, return 'Global'."""
+def extract_class_name(memberdef: ET.Element) -> str:
+    """Extract the class name from the qualified name.
+    If there's no class, return 'Global'."""
     qualified = (memberdef.findtext("qualifiedname") or "").strip()
     # qualifiedname can be "Namespace::Class::Method" or "Namespace.Class.Method"
     # depending on language — normalise to a single separator before splitting
     parts = qualified.replace("::", ".").split(".")
     
-    # The namespace is everything except the last two parts (Class.Method)
-    if len(parts) >= 3:
-        return ".".join(parts[:-2])
+    # The class name is the second-to-last part (before the method name)
+    if len(parts) >= 2:
+        return parts[-2]
     return "Global"
 
 
@@ -187,15 +187,15 @@ def extract_namespace_summary(xml_path: Path) -> str:
 # ---------------------------------------------------------------------------
 
 def parse_class_xml(xml_path: Path) -> tuple[str, list[dict]]:
-    """Parse a single doxygen class XML file and return the namespace summary
+    """Parse a single doxygen class XML file and return the class summary
     and a list of method dicts, each with keys: 
-        namespace, method_name, signature, docs (dict with summary/params/returns).
+        class_name, method_name, signature, docs (dict with summary/params/returns).
     Constructors are skipped."""
     tree = ET.parse(xml_path)
     root = tree.getroot()
     
     methods: list[dict] = []
-    namespace_summary = ""
+    class_summary = ""
     
     for memberdef in root.iter("memberdef"):
         if memberdef.get("kind") != "function":
@@ -203,43 +203,57 @@ def parse_class_xml(xml_path: Path) -> tuple[str, list[dict]]:
         if is_constructor(memberdef):
             continue
         
-        namespace = extract_namespace(memberdef)
+        class_name = extract_class_name(memberdef)
         method_name = get_method_name(memberdef)
         signature = build_signature(memberdef)
         docs = extract_docs(memberdef)
         
         methods.append({
-            "namespace": namespace,
+            "class_name": class_name,
             "method_name": method_name,
             "signature": signature,
             "docs": docs
         })
     
-    # Extract namespace summary once per file
+    # Extract class summary once per file
     if methods:
-        namespace_summary = extract_namespace_summary(xml_path)
+        class_summary = extract_namespace_summary(xml_path)
     
-    return namespace_summary, methods
+    return class_summary, methods
 
 
-def organize_by_namespace(all_methods: list[dict]) -> dict:
-    """Organize methods by namespace.
-    Returns a dict: {namespace: [method_dict, ...]}"""
-    by_namespace = defaultdict(list)
+def organize_by_class(all_methods: list[dict]) -> dict:
+    """Organize methods by class name.
+    Returns a dict: {class_name: [method_dict, ...]}"""
+    by_class = defaultdict(list)
     for method in all_methods:
-        by_namespace[method["namespace"]].append(method)
-    return dict(by_namespace)
+        by_class[method["class_name"]].append(method)
+    return dict(by_class)
 
 
-def generate_markdown(all_methods: list[dict], namespace_summaries: dict) -> str:
-    """Generate markdown with Overview and Detailed sections, organized by namespace."""
+def get_unique_methods_for_overview(methods: list[dict]) -> list[dict]:
+    """Filter methods to only include the first occurrence of each method name.
+    This handles overloaded methods by only showing the first one in the overview."""
+    seen_names = set()
+    unique_methods = []
+    
+    for method in methods:
+        if method["method_name"] not in seen_names:
+            seen_names.add(method["method_name"])
+            unique_methods.append(method)
+    
+    return unique_methods
+
+
+def generate_markdown(all_methods: list[dict], class_summaries: dict) -> str:
+    """Generate markdown with Overview and Detailed sections, organized by class."""
     md_lines: list[str] = []
     
-    # Organize methods by namespace
-    by_namespace = organize_by_namespace(all_methods)
+    # Organize methods by class
+    by_class = organize_by_class(all_methods)
     
-    # Sort namespaces alphabetically
-    sorted_namespaces = sorted(by_namespace.keys())
+    # Sort classes alphabetically
+    sorted_classes = sorted(by_class.keys())
     
     # -------------------------------------------------------------------------
     # OVERVIEW SECTION
@@ -247,27 +261,31 @@ def generate_markdown(all_methods: list[dict], namespace_summaries: dict) -> str
     md_lines.append("# Overview")
     md_lines.append("")
     
-    for namespace in sorted_namespaces:
-        namespace_anchor = make_anchor(namespace)
-        methods = by_namespace[namespace]
+    for class_name in sorted_classes:
+        class_anchor = make_anchor(class_name)
+        methods = by_class[class_name]
         
-        # Namespace header (links to detailed section)
-        md_lines.append(f"## [{namespace}](#{namespace_anchor})")
+        # Filter to unique methods (first occurrence only for overloads)
+        unique_methods = get_unique_methods_for_overview(methods)
+        
+        # Class header (links to detailed section)
+        md_lines.append(f"## [{class_name}](#{class_anchor})")
         md_lines.append("")
         
-        # Namespace summary
-        if namespace in namespace_summaries and namespace_summaries[namespace]:
-            md_lines.append(namespace_summaries[namespace])
+        # Class summary
+        if class_name in class_summaries and class_summaries[class_name]:
+            md_lines.append(class_summaries[class_name])
             md_lines.append("")
         
-        # List of methods with their summaries
-        for method in methods:
-            method_anchor = make_anchor(f"{namespace} {method['method_name']}")
+        # List of methods with their summaries (aligned without table)
+        for method in unique_methods:
+            method_anchor = make_anchor(f"{class_name} {method['method_name']}")
             summary = method["docs"]["summary"] or "No description available."
-            md_lines.append(f"- **[{method['method_name']}](#{method_anchor})** — {summary}")
+            # Use definition list style for alignment
+            md_lines.append(f"**[`{method['method_name']}`](#{method_anchor})**")
+            md_lines.append(f":   {summary}")
+            md_lines.append("")
         
-        md_lines.append("")
-    
     md_lines.append("---")
     md_lines.append("")
     
@@ -277,22 +295,22 @@ def generate_markdown(all_methods: list[dict], namespace_summaries: dict) -> str
     md_lines.append("# Detailed Documentation")
     md_lines.append("")
     
-    for namespace in sorted_namespaces:
-        namespace_anchor = make_anchor(namespace)
-        methods = by_namespace[namespace]
+    for class_name in sorted_classes:
+        class_anchor = make_anchor(class_name)
+        methods = by_class[class_name]
         
-        # Namespace header
-        md_lines.append(f"## {namespace}")
+        # Class header
+        md_lines.append(f"## {class_name}")
         md_lines.append("")
         
-        # Namespace summary
-        if namespace in namespace_summaries and namespace_summaries[namespace]:
-            md_lines.append(namespace_summaries[namespace])
+        # Class summary
+        if class_name in class_summaries and class_summaries[class_name]:
+            md_lines.append(class_summaries[class_name])
             md_lines.append("")
         
         # Each method in detail
         for method in methods:
-            method_anchor = make_anchor(f"{namespace} {method['method_name']}")
+            method_anchor = make_anchor(f"{class_name} {method['method_name']}")
             docs = method["docs"]
             
             # Method header with anchor
@@ -324,9 +342,11 @@ def generate_markdown(all_methods: list[dict], namespace_summaries: dict) -> str
             md_lines.append(method["signature"])
             md_lines.append("```")
             md_lines.append("")
+            md_lines.append("")  # Extra blank line for spacing between methods
         
         md_lines.append("---")
         md_lines.append("")
+        md_lines.append("")  # Extra blank line after class separator
     
     return "\n".join(md_lines)
 
@@ -354,24 +374,24 @@ def main() -> None:
         sys.exit(0)
     
     all_methods: list[dict] = []
-    namespace_summaries: dict[str, str] = {}
+    class_summaries: dict[str, str] = {}
     
     for xml_file in xml_files:
         print(f"  Parsing {xml_file.name} …")
-        ns_summary, methods = parse_class_xml(xml_file)
+        class_summary, methods = parse_class_xml(xml_file)
         all_methods.extend(methods)
         
-        # Store namespace summary (only keep first one if multiple files have same namespace)
+        # Store class summary (only keep first one if multiple files have same class)
         for method in methods:
-            ns = method["namespace"]
-            if ns not in namespace_summaries and ns_summary:
-                namespace_summaries[ns] = ns_summary
+            class_name = method["class_name"]
+            if class_name not in class_summaries and class_summary:
+                class_summaries[class_name] = class_summary
     
     if not all_methods:
         print("No methods found in any of the parsed files.")
         sys.exit(0)
     
-    markdown = generate_markdown(all_methods, namespace_summaries)
+    markdown = generate_markdown(all_methods, class_summaries)
     output_path.write_text(markdown, encoding="utf-8")
     
     print(f"\nDone — {len(all_methods)} method(s) written to {output_path}")
