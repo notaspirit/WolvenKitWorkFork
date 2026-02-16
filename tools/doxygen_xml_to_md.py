@@ -20,13 +20,6 @@ from pathlib import Path
 from collections import defaultdict
 
 # ---------------------------------------------------------------------------
-# Configuration
-# ---------------------------------------------------------------------------
-
-# GitBook requires filename prefix for anchor links
-GITBOOK_FILENAME = "README.md"  # Change this to match your output filename
-
-# ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
@@ -154,9 +147,9 @@ def is_constructor(memberdef: ET.Element) -> bool:
 
 def make_anchor(text: str) -> str:
     """Convert a text string to a GitBook-compatible anchor.
-    GitBook uses lowercase, hyphens for spaces, and removes special chars."""
-    # Convert to lowercase and replace spaces/dots with hyphens
-    anchor = text.lower().replace(" ", "-").replace(".", "-").replace("::", "-")
+    GitBook preserves case but uses hyphens for spaces and removes special chars."""
+    # Replace spaces/dots with hyphens (preserve case)
+    anchor = text.replace(" ", "-").replace(".", "-").replace("::", "-")
     # Remove parentheses and other special characters
     anchor = "".join(c for c in anchor if c.isalnum() or c == "-")
     # Remove multiple consecutive hyphens
@@ -275,8 +268,8 @@ def generate_markdown(all_methods: list[dict], class_summaries: dict) -> str:
         # Filter to unique methods (first occurrence only for overloads)
         unique_methods = get_unique_methods_for_overview(methods)
         
-        # Class header (links to detailed section) - use GitBook-style link with filename
-        md_lines.append(f'## <a href="{GITBOOK_FILENAME}#{class_anchor}">{class_name}</a>')
+        # Class header (links to detailed section)
+        md_lines.append(f"## [{class_name}](#{class_anchor})")
         md_lines.append("")
         
         # Class summary
@@ -284,15 +277,21 @@ def generate_markdown(all_methods: list[dict], class_summaries: dict) -> str:
             md_lines.append(class_summaries[class_name])
             md_lines.append("")
         
-        # List of methods with their summaries (aligned using markdown table)
-        md_lines.append("| Method | Description |")
-        md_lines.append("|--------|-------------|")
+        # Find the longest method name to determine alignment
+        max_method_len = max(len(method["method_name"]) for method in unique_methods) if unique_methods else 0
+        # Add some padding for readability
+        align_position = max_method_len + 4
+        
+        # List of methods with their summaries (aligned with spaces)
         for method in unique_methods:
             method_anchor = make_anchor(f"{class_name} {method['method_name']}")
             summary = method["docs"]["summary"] or "No description available."
-            # Escape pipe characters in summary
-            summary_safe = summary.replace("|", "\\|")
-            md_lines.append(f'| [{method["method_name"]}]({GITBOOK_FILENAME}#{method_anchor}) | {summary_safe} |')
+            method_link = f"[{method['method_name']}](#{method_anchor})"
+            # Calculate padding needed to align descriptions
+            padding = align_position - len(method["method_name"])
+            spaces = " " * padding
+            md_lines.append(f"{method_link}{spaces}{summary}")
+        
         md_lines.append("")
         
     md_lines.append("---")
