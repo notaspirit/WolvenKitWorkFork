@@ -277,21 +277,15 @@ def generate_markdown(all_methods: list[dict], class_summaries: dict) -> str:
             md_lines.append(class_summaries[class_name])
             md_lines.append("")
         
-        # Find the longest method name to determine alignment
-        max_method_len = max(len(method["method_name"]) for method in unique_methods) if unique_methods else 0
-        # Add some padding for readability
-        align_position = max_method_len + 4
-        
-        # List of methods with their summaries (aligned with spaces)
+        # List of methods with their summaries (markdown table)
+        md_lines.append("| Method | Description |")
+        md_lines.append("|--------|-------------|")
         for method in unique_methods:
-            method_anchor = make_anchor(f"{class_name} {method['method_name']}")
+            method_anchor = make_anchor(method['method_name'])
             summary = method["docs"]["summary"] or "No description available."
-            method_link = f"[{method['method_name']}](#{method_anchor})"
-            # Calculate padding needed to align descriptions
-            padding = align_position - len(method["method_name"])
-            spaces = " " * padding
-            md_lines.append(f"{method_link}{spaces}{summary}")
-        
+            # Escape pipe characters in summary
+            summary_safe = summary.replace("|", "\\|")
+            md_lines.append(f'| [{method["method_name"]}](#{method_anchor}) | {summary_safe} |')
         md_lines.append("")
         
     md_lines.append("---")
@@ -318,7 +312,7 @@ def generate_markdown(all_methods: list[dict], class_summaries: dict) -> str:
         
         # Each method in detail
         for method in methods:
-            method_anchor = make_anchor(f"{class_name} {method['method_name']}")
+            method_anchor = make_anchor(method['method_name'])
             docs = method["docs"]
             
             # Method header with anchor
