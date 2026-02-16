@@ -262,14 +262,13 @@ def generate_markdown(all_methods: list[dict], class_summaries: dict) -> str:
     md_lines.append("")
     
     for class_name in sorted_classes:
-        class_anchor = make_anchor(class_name)
         methods = by_class[class_name]
         
         # Filter to unique methods (first occurrence only for overloads)
         unique_methods = get_unique_methods_for_overview(methods)
         
         # Class header (links to detailed section)
-        md_lines.append(f"## [{class_name}](#{class_anchor})")
+        md_lines.append(f"## {class_name}")
         md_lines.append("")
         
         # Class summary
