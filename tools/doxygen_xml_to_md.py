@@ -268,8 +268,8 @@ def generate_markdown(all_methods: list[dict], class_summaries: dict) -> str:
         # Filter to unique methods (first occurrence only for overloads)
         unique_methods = get_unique_methods_for_overview(methods)
         
-        # Class header (links to detailed section)
-        md_lines.append(f"## [{class_name}](#{class_anchor})")
+        # Class header (links to detailed section) - use HTML anchor for GitBook
+        md_lines.append(f'## <a href="#{class_anchor}">{class_name}</a>')
         md_lines.append("")
         
         # Class summary
@@ -277,14 +277,15 @@ def generate_markdown(all_methods: list[dict], class_summaries: dict) -> str:
             md_lines.append(class_summaries[class_name])
             md_lines.append("")
         
-        # List of methods with their summaries (aligned without table)
+        # List of methods with their summaries (aligned using HTML table)
+        md_lines.append('<table>')
+        md_lines.append('<tr><td width="300"><b>Method</b></td><td><b>Description</b></td></tr>')
         for method in unique_methods:
             method_anchor = make_anchor(f"{class_name} {method['method_name']}")
             summary = method["docs"]["summary"] or "No description available."
-            # Use definition list style for alignment
-            md_lines.append(f"**[`{method['method_name']}`](#{method_anchor})**")
-            md_lines.append(f":   {summary}")
-            md_lines.append("")
+            md_lines.append(f'<tr><td><code><a href="#{method_anchor}">{method["method_name"]}</a></code></td><td>{summary}</td></tr>')
+        md_lines.append('</table>')
+        md_lines.append("")
         
     md_lines.append("---")
     md_lines.append("")
