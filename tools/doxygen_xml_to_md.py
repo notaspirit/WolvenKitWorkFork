@@ -24,7 +24,7 @@ from collections import defaultdict
 # ---------------------------------------------------------------------------
 
 # GitBook requires filename prefix for anchor links
-GITBOOK_FILENAME = "README.md"  # Change this to match your output filename
+GITBOOK_FILENAME = "api-documentation.md"  # Change this to match your output filename
 
 # ---------------------------------------------------------------------------
 # Helpers
