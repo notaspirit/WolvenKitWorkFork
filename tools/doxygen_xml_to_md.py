@@ -20,6 +20,13 @@ from pathlib import Path
 from collections import defaultdict
 
 # ---------------------------------------------------------------------------
+# Configuration
+# ---------------------------------------------------------------------------
+
+# GitBook requires filename prefix for anchor links
+GITBOOK_FILENAME = "README.md"  # Change this to match your output filename
+
+# ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
 
@@ -268,8 +275,8 @@ def generate_markdown(all_methods: list[dict], class_summaries: dict) -> str:
         # Filter to unique methods (first occurrence only for overloads)
         unique_methods = get_unique_methods_for_overview(methods)
         
-        # Class header (links to detailed section) - use HTML anchor for GitBook
-        md_lines.append(f'## <a href="#{class_anchor}">{class_name}</a>')
+        # Class header (links to detailed section) - use GitBook-style link with filename
+        md_lines.append(f'## <a href="{GITBOOK_FILENAME}#{class_anchor}">{class_name}</a>')
         md_lines.append("")
         
         # Class summary
@@ -283,7 +290,7 @@ def generate_markdown(all_methods: list[dict], class_summaries: dict) -> str:
         for method in unique_methods:
             method_anchor = make_anchor(f"{class_name} {method['method_name']}")
             summary = method["docs"]["summary"] or "No description available."
-            md_lines.append(f'<tr><td><code><a href="#{method_anchor}">{method["method_name"]}</a></code></td><td>{summary}</td></tr>')
+            md_lines.append(f'<tr><td><code><a href="{GITBOOK_FILENAME}#{method_anchor}">{method["method_name"]}</a></code></td><td>{summary}</td></tr>')
         md_lines.append('</table>')
         md_lines.append("")
         
