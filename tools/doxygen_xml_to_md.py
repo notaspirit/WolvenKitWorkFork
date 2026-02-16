@@ -147,9 +147,9 @@ def is_constructor(memberdef: ET.Element) -> bool:
 
 def make_anchor(text: str) -> str:
     """Convert a text string to a GitBook-compatible anchor.
-    GitBook preserves case but uses hyphens for spaces and removes special chars."""
-    # Replace spaces/dots with hyphens (preserve case)
-    anchor = text.replace(" ", "-").replace(".", "-").replace("::", "-")
+    GitBook uses lowercase anchors with hyphens for spaces."""
+    # Convert to lowercase and replace spaces/dots with hyphens
+    anchor = text.lower().replace(" ", "-").replace(".", "-").replace("::", "-")
     # Remove parentheses and other special characters
     anchor = "".join(c for c in anchor if c.isalnum() or c == "-")
     # Remove multiple consecutive hyphens
@@ -344,11 +344,12 @@ def generate_markdown(all_methods: list[dict], class_summaries: dict) -> str:
             md_lines.append(method["signature"])
             md_lines.append("```")
             md_lines.append("")
-            md_lines.append("")  # Extra blank line for spacing between methods
-        
+            md_lines.append("---")
+            md_lines.append("")
+            
+        md_lines.append("")
         md_lines.append("---")
         md_lines.append("")
-        md_lines.append("")  # Extra blank line after class separator
     
     return "\n".join(md_lines)
 
