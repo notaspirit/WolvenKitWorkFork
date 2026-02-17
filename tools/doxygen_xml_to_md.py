@@ -145,6 +145,16 @@ def is_constructor(memberdef: ET.Element) -> bool:
     return name == class_name
 
 
+def strip_generics(name: str) -> str:
+    """Remove generic type parameters from a method name for display purposes.
+    E.g. 'GetComponent<T>' → 'GetComponent', 'Foo<T, U>' → 'Foo'.
+    Names without angle brackets are returned unchanged."""
+    bracket = name.find("<")
+    if bracket != -1:
+        return name[:bracket]
+    return name
+
+
 def make_anchor(text: str) -> str:
     """Convert a text string to a GitBook-compatible anchor.
     GitBook uses lowercase anchors with hyphens for spaces."""
@@ -280,11 +290,12 @@ def generate_markdown(all_methods: list[dict], class_summaries: dict) -> str:
         md_lines.append("| Method | Description |")
         md_lines.append("|--------|-------------|")
         for method in unique_methods:
-            method_anchor = make_anchor(method['method_name'])
+            display_name = strip_generics(method["method_name"])
+            method_anchor = make_anchor(display_name)
             summary = method["docs"]["summary"] or "No description available."
             # Escape pipe characters in summary
             summary_safe = summary.replace("|", "\\|")
-            md_lines.append(f'| [{method["method_name"]}](#{method_anchor}) | {summary_safe} |')
+            md_lines.append(f'| [{display_name}](#{method_anchor}) | {summary_safe} |')
         md_lines.append("")
         
     md_lines.append("---")
@@ -311,11 +322,12 @@ def generate_markdown(all_methods: list[dict], class_summaries: dict) -> str:
         
         # Each method in detail
         for method in methods:
-            method_anchor = make_anchor(method['method_name'])
+            display_name = strip_generics(method["method_name"])
+            method_anchor = make_anchor(display_name)
             docs = method["docs"]
             
             # Method header with anchor
-            md_lines.append(f"### {method['method_name']}")
+            md_lines.append(f"### {display_name}")
             md_lines.append("")
             
             # Summary as a blockquote (only if present)
