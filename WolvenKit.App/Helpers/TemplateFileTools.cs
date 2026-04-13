@@ -1462,6 +1462,8 @@ public partial class TemplateFileTools
                 }
             }
 
+            entTemplate.DefaultAppearance = prop.Appearances.FirstOrDefault() ?? "default";
+
             entTemplate.Components.Add(new gameTargetingComponent() { Name = "targeting", });
 
             _cr2WTools.WriteCr2W(new CR2WFile() { RootChunk = entTemplate }, absoluteEntPath);
