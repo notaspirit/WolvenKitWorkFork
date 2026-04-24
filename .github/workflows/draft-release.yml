@@ -65,7 +65,7 @@ jobs:
           mkdir compiled-changelog
           pip install pyyaml
           echo ${{env.VERSION_APP}}
-          python ".\tools\compile_changelog.py" --release ${{env.VERSION_APP}} --input "changelog\!unreleased.yaml" --out-md "compiled-changelog\changelog.md" --out-bb "compiled-changelog\changelog.txt" --changelog "changelog.md"
+          python ".\tools\compile_changelog.py" --release ${{env.VERSION_APP}} --input "changelog\!unreleased.yaml" --out-md "compiled-changelog\CHANGELOG.md" --out-bb "compiled-changelog\CHANGELOG.txt" --changelog "CHANGELOG.md"
 
       - name: Name Unreleased
         shell: pwsh
@@ -84,7 +84,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add changelog.md
+          git add CHANGELOG.md
           git add changelog\*.yaml
           git add
           git commit -m "Update changelog for version ${{env.VERSION_APP}}" || echo "No changes to commit"
@@ -97,7 +97,7 @@ jobs:
 
       - name: Populate Release Template
         shell: pwsh
-        run: (Get-Content RELEASE.md -Raw) -replace '{CHANGELOG}', (Get-Content compiled-changelog\changelog.md -Raw) | Set-Content RELEASE.md
+        run: (Get-Content RELEASE.md -Raw) -replace '{CHANGELOG}', (Get-Content compiled-changelog\CHANGELOG.md -Raw) | Set-Content RELEASE.md
 
       ##########################################
       # APP
