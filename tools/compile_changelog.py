@@ -221,13 +221,13 @@ def main() -> None:
     if not input_path.exists():
         sys.exit(f"ERROR: Input file not found: {input_path}")
 
-    print(f"\nCompiling changelog for version {args.release} …\n")
+    print(f"\nCompiling changelog for version {version} …\n")
 
     changes = load_changes(input_path)
     grouped = group_changes(changes)
 
-    md_section = build_markdown(args.release, grouped)
-    bb_section = build_bbcode(args.release, grouped)
+    md_section = build_markdown(version, grouped)
+    bb_section = build_bbcode(version, grouped)
 
     prepend_to_changelog(changelog_path, md_section)
     write_file(out_md_path, md_section)
