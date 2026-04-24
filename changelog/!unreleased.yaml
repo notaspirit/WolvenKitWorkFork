@@ -1,11 +1,9 @@
+# Indepth docs at https://wolvenkit.github.io/WolvenKit/contributing/keep-changelog.html
 Template changelog entry:
-    # pick one
     - type: "fix | add | change | remove"
-        # pick as many as apply
       packages: ["App", "CLI", "Core", "Common", "ModKit", "RED4"]
-        # your display author name
+      pr-number: 0
       author: ""
-        # user facing change message
       description: ""
 
 changes:
