@@ -152,8 +152,8 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ env.VERSION_APP }}
-          draft: true
-          generate_release_notes: true
+          draft: false
+          generate_release_notes: false
           body_path: "RELEASE.md"
           files: |
             ${{ env.OUT_DIR }}/*.zip
