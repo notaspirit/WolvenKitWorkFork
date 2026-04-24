@@ -1,0 +1,11 @@
+Template changelog entry:
+    # pick one
+    - type: "fix | add | change | remove"
+        # pick as many as apply
+      packages: ["App", "CLI", "Core", "Common", "ModKit", "RED4"]
+        # your display author name
+      author: ""
+        # user facing change message
+      description: ""
+
+changes:
