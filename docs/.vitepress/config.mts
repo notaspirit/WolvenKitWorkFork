@@ -43,6 +43,14 @@ export default defineConfig({
         ]
       },
       {
+        text: 'Maintaining',
+        collapsed: false,
+        items: [
+          { text: 'Homepage', link: '/maintaining/home' },
+          { text: 'Release Process', link: '/maintaining/release-process' },
+        ]
+      },
+      {
         text: 'Code Documentation',
         collapsed: false,
         items: [
