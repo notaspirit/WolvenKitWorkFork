@@ -63,6 +63,7 @@ jobs:
         run: |
           mkdir compiled-changelog
           pip install pyyaml
+          echo ${{env.VERSION_APP}}
           python .\tools\compile_changelog.py --version ${{env.VERSION_APP}} --input changelog\!unreleased.yaml --out-md compiled-changelog\changelog.md --out-bb compiled-changelog\changelog.txt --changelog changelog.md
 
       - name: Name Unreleased
