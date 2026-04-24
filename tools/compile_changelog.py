@@ -181,7 +181,7 @@ def parse_args() -> argparse.Namespace:
         description="Compile changelog/unreleased.yaml into versioned Markdown & BBCode."
     )
     p.add_argument(
-        "--version", "-v",
+        "--release", "-r",
         required=True,
         help="Release version string, e.g. 1.2.3",
     )
@@ -219,13 +219,13 @@ def main() -> None:
     if not input_path.exists():
         sys.exit(f"ERROR: Input file not found: {input_path}")
 
-    print(f"\nCompiling changelog for version {args.version} …\n")
+    print(f"\nCompiling changelog for version {args.release} …\n")
 
     changes = load_changes(input_path)
     grouped = group_changes(changes)
 
-    md_section = build_markdown(args.version, grouped)
-    bb_section = build_bbcode(args.version, grouped)
+    md_section = build_markdown(args.release, grouped)
+    bb_section = build_bbcode(args.release, grouped)
 
     prepend_to_changelog(changelog_path, md_section)
     write_file(out_md_path, md_section)
