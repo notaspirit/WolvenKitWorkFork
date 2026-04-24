@@ -163,6 +163,7 @@ jobs:
 
       - name: Read bbcode description file
         id: desc
+        shell: bash
         run: |
           {
             echo 'content<<EOF'
