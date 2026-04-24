@@ -1,0 +1,101 @@
+Template changelog entry:
+    # pick one
+    - type: "fix | add | change | remove"
+        # pick as many as apply
+      packages: ["App", "CLI", "Core", "Common", "ModKit", "RED4"]
+        # your display author name
+      author: ""
+        # user facing change message
+      description: ""
+
+changes:
+    # ── Multiple packages, with author ──────────────────────────────────────────
+    - type: "add"
+      packages: ["App", "CLI"]
+      author: "025459a4-214c-4ac2-a3f9-cdad55b165c4"
+      description: "Added dark mode support to the main interface"
+
+    # ── Single package, with author ─────────────────────────────────────────────
+    - type: "add"
+      packages: ["Core"]
+      author: "025459a4-214c-4ac2-a3f9-cdad55b165c4"
+      description: "Introduced plugin lifecycle hooks for init and teardown"
+
+    # ── No author ────────────────────────────────────────────────────────────────
+    - type: "add"
+      packages: ["ModKit"]
+      author: ""
+      description: "Bundled starter templates for new mod projects"
+
+    # ── All packages at once ─────────────────────────────────────────────────────
+    - type: "change"
+      packages: ["App", "CLI", "Core", "Common", "ModKit", "RED4"]
+      author: "025459a4-214c-4ac2-a3f9-cdad55b165c4"
+      description: "Bumped minimum required runtime version to 3.0"
+
+    # ── fix type ─────────────────────────────────────────────────────────────────
+    - type: "fix"
+      packages: ["App"]
+      author: "025459a4-214c-4ac2-a3f9-cdad55b165c4"
+      description: "Fixed crash on startup when config file is missing"
+
+    - type: "fix"
+      packages: ["Core"]
+      author: "025459a4-214c-4ac2-a3f9-cdad55b165c4"
+      description: "Resolved race condition in the async task scheduler"
+
+    - type: "fix"
+      packages: ["RED4"]
+      author: ""
+      description: "Corrected offset calculations for RED4 archive headers"
+
+    # ── remove type ──────────────────────────────────────────────────────────────
+    - type: "remove"
+      packages: ["CLI"]
+      author: "025459a4-214c-4ac2-a3f9-cdad55b165c4"
+      description: "Dropped deprecated --legacy-output flag"
+
+    - type: "remove"
+      packages: ["Common"]
+      author: ""
+      description: "Removed unused internal StringPool utility class"
+
+    # ── Multiple entries of the same type in the same package ────────────────────
+    - type: "fix"
+      packages: ["App"]
+      author: "025459a4-214c-4ac2-a3f9-cdad55b165c4"
+      description: "Fixed tooltip misalignment on high-DPI displays"
+
+    - type: "fix"
+      packages: ["App"]
+      author: "025459a4-214c-4ac2-a3f9-cdad55b165c4"
+      description: "Fixed memory leak when closing project tabs rapidly"
+
+    # ── change with multiple packages, no author ─────────────────────────────────
+    - type: "change"
+      packages: ["CLI", "Core"]
+      author: ""
+      description: "Unified error message formatting across all command outputs"
+
+    # ── Unknown/custom type (should still appear, appended after canonical types) ─
+    - type: "security"
+      packages: ["Core"]
+      author: "025459a4-214c-4ac2-a3f9-cdad55b165c4"
+      description: "Patched path traversal vulnerability in archive loader"
+
+    # ── Unknown/custom package (should still appear, appended after canonical pkgs)
+    - type: "add"
+      packages: ["Launcher"]
+      author: "025459a4-214c-4ac2-a3f9-cdad55b165c4"
+      description: "Added auto-update check on launch for the Launcher component"
+
+    # ── Entry with no packages key at all (should fall under General) ─────────────
+    - type: "fix"
+      author: "025459a4-214c-4ac2-a3f9-cdad55b165c4"
+      description: "Fixed incorrect line endings in generated output files"
+
+    # ── Entry with empty packages list (should fall under General) ────────────────
+    - type: "change"
+      packages: []
+      author: ""
+      description: "Adjusted default log verbosity from INFO to WARNING"
