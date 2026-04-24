@@ -2,15 +2,15 @@
 """
 compile_changelog.py
 
-Compiles changelog/unreleased.yaml into:
+Compiles changelog/!unreleased.yaml into:
   1. Appends a new versioned section to changelog.md
   2. Writes current-changelog.md  (Markdown)
   3. Writes current-changelog.txt (BBCode)
 
 Usage:
-    python compile_changelog.py --version 1.2.3
-    python compile_changelog.py --version 1.2.3 \
-        --input changelog/unreleased.yaml \
+    python compile_changelog.py --release 1.2.3
+    python compile_changelog.py --release 1.2.3 \
+        --input changelog/!unreleased.yaml \
         --changelog changelog.md \
         --out-md current-changelog.md \
         --out-bb current-changelog.txt
@@ -131,7 +131,7 @@ def build_markdown(version: str, grouped: dict) -> str:
 def build_bbcode(version: str, grouped: dict) -> str:
     lines = [
         f"[b]{version} — {date.today().isoformat()}[/b]",
-        "",
+        ""
     ]
 
     for pkg in ordered_packages(grouped):
@@ -165,13 +165,13 @@ def prepend_to_changelog(changelog_path: Path, section: str) -> None:
 
     separator = "\n\n---\n\n" if existing.strip() else ""
     changelog_path.write_text(section + separator + existing, encoding="utf-8")
-    print(f"  ✓ Updated  {changelog_path}")
+    print(f"  [ok] Updated  {changelog_path}")
 
 
 def write_file(path: Path, content: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(content, encoding="utf-8")
-    print(f"  ✓ Wrote    {path}")
+    print(f"  [ok] Wrote    {path}")
 
 
 # ── CLI ───────────────────────────────────────────────────────────────────────
@@ -210,6 +210,8 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> None:
     args = parse_args()
+
+    version = args.release.strip()
 
     input_path     = Path(args.input)
     changelog_path = Path(args.changelog)
