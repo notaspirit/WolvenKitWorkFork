@@ -161,6 +161,35 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Read bbcode description file
+        id: desc
+        run: |
+          {
+            echo 'content<<EOF'
+            cat compiled-changelog\CHANGELOG.txt
+            echo EOF
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Upload Portable to Nexus Mods
+        uses: Nexus-Mods/upload-action@v1.0.0-beta.5
+        with:
+          api_key: ${{ secrets.NEXUSMODS_API_KEY }}
+          file_group_id: 7343075
+          filename: ${{ env.OUT_DIR }}/${{env.NAME}}-${{env.VERSION_APP}}.zip
+          version: ${{env.VERSION_APP}}
+          file_category: main
+          description: ${{ steps.desc.outputs.content }}
+
+      - name: Upload Installer to Nexus Mods
+        uses: Nexus-Mods/upload-action@v1.0.0-beta.5
+        with:
+          api_key: ${{ secrets.NEXUSMODS_API_KEY }}
+          file_group_id: 7343078
+          filename: ${{ env.OUT_DIR }}/${{env.NAME}}Setup-${{env.VERSION_APP}}.exe
+          version: ${{env.VERSION_APP}}
+          file_category: optional
+          description: ${{ steps.desc.outputs.content }}
+
   publish-nugets:
     runs-on: windows-latest
 
