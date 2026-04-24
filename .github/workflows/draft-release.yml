@@ -69,11 +69,15 @@ jobs:
 
       - name: Name Unreleased
         shell: pwsh
-        run: Rename-Item -Path "changelog\!unreleased.yaml" -NewName "changelog\${{env.VERSION_APP}}.yaml"
+        run: |
+          cd changelog
+          Rename-Item -Path "!unreleased.yaml" -NewName "${{env.VERSION_APP}}.yaml"
 
       - name: Add Templated Unreleased
         shell: pwsh
-        run: Copy-Item -Path "changelog\!template.yaml" -Destination "changelog\!unreleased.yaml"
+        run: |
+          cd changelog
+          Copy-Item -Path "!template.yaml" -Destination "!unreleased.yaml"
 
       # commit updated changelog
       - name: Commit and Push
