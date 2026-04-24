@@ -167,7 +167,7 @@ jobs:
         run: |
           {
             echo 'content<<EOF'
-            cat compiled-changelog\CHANGELOG.txt
+            cat compiled-changelog/CHANGELOG.txt
             echo EOF
           } >> "$GITHUB_OUTPUT"
 
