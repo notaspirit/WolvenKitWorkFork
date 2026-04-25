@@ -61,7 +61,7 @@ jobs:
 
       - name: Ensure changelog is staged
         run: |
-          if git ls-remote --exit-code --heads origin changelog-staging; then
+          if (git ls-remote --exit-code --heads origin changelog-staging) then
             echo "Changelog branch exists"
           else
             echo "Changelog branch does not exist, please run stage changelog first"
