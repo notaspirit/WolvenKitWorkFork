@@ -112,7 +112,9 @@ jobs:
 
       - name: Write Changelog
         shell: pwsh
-        run: Set-Content -Path "CHANGELOG.md" -Value "${{ steps.history_changelog.outputs.content }}"
+        env:
+          CHANGELOG: ${{ steps.history_changelog.outputs.content }}
+        run: Set-Content -Path "CHANGELOG.md" -Value $env:CHANGELOG
 
       - name: Name Unreleased
         shell: pwsh
@@ -141,10 +143,12 @@ jobs:
         run: |
           git push origin --delete changelog-staging
           git push origin main --tags
-
+      
       - name: Populate Release Template
         shell: pwsh
-        run: (Get-Content RELEASE.md -Raw) -replace '{CHANGELOG}', ${{ steps.md_changelog.outputs.content }} | Set-Content RELEASE.md
+        env:
+          CHANGELOG: ${{ steps.md_changelog.outputs.content }}
+        run: (Get-Content RELEASE.md -Raw) -replace '{CHANGELOG}', $env:CHANGELOG | Set-Content RELEASE.md
 
       ##########################################
       # APP
