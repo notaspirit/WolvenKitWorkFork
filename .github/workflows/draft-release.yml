@@ -1,4 +1,4 @@
-name: wkit-draft-release
+name: release
 on:
   workflow_dispatch:
 
@@ -59,13 +59,56 @@ jobs:
       ##########################################
       # CHANGELOG
 
-      # compile changelog from !unreleased.yaml
-      - name: Generate changelog
+      - name: Ensure changelog is staged
         run: |
-          mkdir compiled-changelog
-          pip install pyyaml
-          echo ${{env.VERSION_APP}}
-          python ".\tools\compile_changelog.py" --release ${{env.VERSION_APP}} --input "changelog\!unreleased.yaml" --out-md "compiled-changelog\CHANGELOG.md" --out-bb "compiled-changelog\CHANGELOG.txt" --changelog "CHANGELOG.md"
+          if git ls-remote --exit-code --heads origin changelog-staging; then
+            echo "Changelog branch exists"
+          else
+            echo "Changelog branch does not exist, please run stage changelog first"
+            exit 1
+          fi
+
+      - name: Checkout changelog branch
+        run: git checkout changelog-staging
+
+      - name: Read MD Version Changelog
+        id: md_changelog
+        shell: bash
+        run: |
+          {
+            echo 'content<<EOF'
+            cat compiled-changelog/CHANGELOG.md
+            echo EOF
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Read BB Version Changelog
+        id: bb_changelog
+        shell: bash
+        run: |
+          {
+            echo 'content<<EOF'
+            cat compiled-changelog/CHANGELOG.txt
+            echo EOF
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Read History Changelog
+        id: history_changelog
+        shell: bash
+        run: |
+          {
+            echo 'content<<EOF'
+            cat CHANGELOG.md
+            echo EOF
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Clean up Branches
+        run: |
+          git checkout main
+          git branch -D changelog-staging
+
+      - name: Write Changelog
+        shell: pwsh
+        run: Set-Content -Path "CHANGELOG.md" -Value ${{ steps.history_changelog.outputs.content }}
 
       - name: Name Unreleased
         shell: pwsh
@@ -79,14 +122,12 @@ jobs:
           cd changelog
           Copy-Item -Path "!template.yaml" -Destination "!unreleased.yaml"
 
-      # commit updated changelog
-      - name: Commit and Push
+      - name: Commit
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add CHANGELOG.md
           git add changelog\*.yaml
-          git add
           git commit -m "Update changelog for version ${{env.VERSION_APP}}" || echo "No changes to commit"
 
       - name: Create Release Tag
@@ -97,7 +138,7 @@ jobs:
 
       - name: Populate Release Template
         shell: pwsh
-        run: (Get-Content RELEASE.md -Raw) -replace '{CHANGELOG}', (Get-Content compiled-changelog\CHANGELOG.md -Raw) | Set-Content RELEASE.md
+        run: (Get-Content RELEASE.md -Raw) -replace '{CHANGELOG}', ${{ steps.md_changelog.outputs.content }} | Set-Content RELEASE.md
 
       ##########################################
       # APP
@@ -161,19 +202,6 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Read bbcode description file
-        id: desc
-        shell: bash
-        run: |
-          {
-            echo 'content<<EOF'
-            cat compiled-changelog/CHANGELOG.txt
-            echo EOF
-          } >> "$GITHUB_OUTPUT"
-
-      - name: Debug Logging
-        run: echo "${{ steps.desc.outputs.content }}"
-
       - name: Upload Portable to Nexus Mods
         uses: Nexus-Mods/upload-action@v1.0.0-beta.5
         with:
@@ -182,7 +210,7 @@ jobs:
           filename: ${{ env.OUT_DIR }}/${{env.NAME}}-${{env.VERSION_APP}}.zip
           version: ${{env.VERSION_APP}}
           file_category: main
-          description: ${{ steps.desc.outputs.content }}
+          description: ${{ steps.bb_changelog.outputs.content }}
 
       - name: Upload Installer to Nexus Mods
         uses: Nexus-Mods/upload-action@v1.0.0-beta.5
@@ -192,7 +220,7 @@ jobs:
           filename: ${{ env.OUT_DIR }}/${{env.NAME}}Setup-${{env.VERSION_APP}}.exe
           version: ${{env.VERSION_APP}}
           file_category: optional
-          description: ${{ steps.desc.outputs.content }}
+          description: ${{ steps.bb_changelog.outputs.content }}
 
   publish-nugets:
     runs-on: windows-latest
