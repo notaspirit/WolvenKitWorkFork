@@ -9,26 +9,3 @@ Template changelog entry:
       description: ""
 
 changes:
-    # ── Multiple packages, with author ──────────────────────────────────────────
-    - type: "add"
-      packages: ["App", "CLI"]
-      author: "025459a4-214c-4ac2-a3f9-cdad55b165c4"
-      description: "Added dark mode support to the main interface"
-
-    # ── Single package, with author ─────────────────────────────────────────────
-    - type: "add"
-      packages: ["Core"]
-      author: "025459a4-214c-4ac2-a3f9-cdad55b165c4"
-      description: "Introduced plugin lifecycle hooks for init and teardown"
-
-    # ── No author ────────────────────────────────────────────────────────────────
-    - type: "add"
-      packages: ["ModKit"]
-      author: ""
-      description: "Bundled starter templates for new mod projects"
-
-    # ── All packages at once ─────────────────────────────────────────────────────
-    - type: "change"
-      packages: ["App", "CLI", "Common"]
-      author: "025459a4-214c-4ac2-a3f9-cdad55b165c4"
-      description: "Bumped minimum required runtime version to 3.0"
