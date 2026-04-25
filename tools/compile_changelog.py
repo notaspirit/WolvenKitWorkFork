@@ -30,13 +30,7 @@ except ImportError:
     )
 
 # ── canonical ordering ────────────────────────────────────────────────────────
-TYPE_ORDER = ["add", "change", "fix", "remove"]
-TYPE_LABELS = {
-    "add":    "Added",
-    "change": "Changed",
-    "fix":    "Fixed",
-    "remove": "Removed",
-}
+TYPE_ORDER = ["security", "deprecated", "removed", "added", "fixed", "changed"]
 
 PACKAGE_ORDER = ["App", "CLI", "Core", "Common", "ModKit", "RED4"]
 
@@ -107,21 +101,20 @@ def build_markdown(version: str, grouped: dict) -> str:
 
     for pkg in ordered_packages(grouped):
         pkg_label = pkg if pkg else "General"
-        lines.append(f"### {pkg_label}")
+        lines.append(f"**{pkg_label}**")
         lines.append("")
 
         for t in ordered_types(grouped[pkg]):
-            type_label = TYPE_LABELS.get(t, t.capitalize())
-            lines.append(f"#### {type_label}")
-            lines.append("")
+            type_label = t.capitalize()
             for item in grouped[pkg][t]:
                 author = item["author"]
                 desc   = item["description"]
-                bullet = f"* {desc}"
+                bullet = f"* *{type_label}*: {desc}"
                 if author:
                     bullet += f" by @{author}"
                 lines.append(bullet)
-            lines.append("")
+
+        lines.append("")
 
     return "\n".join(lines)
 
@@ -140,17 +133,16 @@ def build_bbcode(version: str, grouped: dict) -> str:
         lines.append("")
 
         for t in ordered_types(grouped[pkg]):
-            type_label = TYPE_LABELS.get(t, t.capitalize())
-            lines.append(f"[i]{type_label}[/i]")
-            lines.append("")
+            type_label = t.capitalize()
             for item in grouped[pkg][t]:
                 author = item["author"]
                 desc   = item["description"]
-                bullet = f"[*] {desc}"
+                bullet = f"[*] [i]{type_label}[/i]: {desc}"
                 if author:
                     bullet += f" by @{author}"
                 lines.append(bullet)
-            lines.append("")
+
+        lines.append("")
 
     return "\n".join(lines)
 
