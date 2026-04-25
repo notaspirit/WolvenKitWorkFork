@@ -44,6 +44,6 @@ jobs:
       - name: Commit and Push
         run: |
           git add CHANGELOG.md
-          git add compiled-changelog\CHANGELOG.md
-          git add compiled-changelog\CHANGELOG.txt
+          git add compiled-changelog/CHANGELOG.md
+          git add compiled-changelog/CHANGELOG.txt
           git commit -m "Stage changelog for version ${{env.VERSION_APP}}" || echo "No changes to commit"
