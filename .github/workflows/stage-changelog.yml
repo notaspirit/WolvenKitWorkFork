@@ -39,7 +39,7 @@ jobs:
           mkdir compiled-changelog
           pip install pyyaml
           echo ${{env.VERSION_APP}}
-          python ".\tools\compile_changelog.py" --release ${{env.VERSION_APP}} --input "changelog\!unreleased.yaml" --out-md "compiled-changelog\CHANGELOG.md" --out-bb "compiled-changelog\CHANGELOG.txt" --changelog "CHANGELOG.md"
+          python "tools/compile_changelog.py" --release ${{env.VERSION_APP}} --input "changelog/!unreleased.yaml" --out-md "compiled-changelog/CHANGELOG.md" --out-bb "compiled-changelog/CHANGELOG.txt" --changelog "CHANGELOG.md"
 
       - name: Commit and Push
         run: |
