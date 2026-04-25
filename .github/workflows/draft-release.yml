@@ -58,15 +58,17 @@ jobs:
 
       ##########################################
       # CHANGELOG
-
+      
       - name: Ensure changelog is staged
+        shell: pwsh
         run: |
-          if (git ls-remote --exit-code --heads origin changelog-staging) then
-            echo "Changelog branch exists"
-          else
-            echo "Changelog branch does not exist, please run stage changelog first"
+          $branchExists = git ls-remote --exit-code --heads origin changelog-staging
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host "Changelog branch exists"
+          } else {
+            Write-Host "Changelog branch does not exist, please run stage changelog first"
             exit 1
-          fi
+          }
 
       - name: Checkout changelog branch
         run: git checkout changelog-staging
