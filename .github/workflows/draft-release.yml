@@ -112,7 +112,7 @@ jobs:
 
       - name: Write Changelog
         shell: pwsh
-        run: Set-Content -Path "CHANGELOG.md" -Value ${{ steps.history_changelog.outputs.content }}
+        run: Set-Content -Path "CHANGELOG.md" -Value "${{ steps.history_changelog.outputs.content }}"
 
       - name: Name Unreleased
         shell: pwsh
