@@ -216,7 +216,7 @@ jobs:
         uses: Nexus-Mods/upload-action@v1.0.0-beta.5
         with:
           api_key: ${{ secrets.NEXUSMODS_API_KEY }}
-          file_group_id: 0 #TODO: update group_id once available
+          file_group_id: 7343075
           filename: ${{ env.OUT_DIR }}/${{env.NAME}}-${{env.VERSION_APP}}.zip
           version: ${{env.VERSION_APP}}
           file_category: main
@@ -226,7 +226,7 @@ jobs:
         uses: Nexus-Mods/upload-action@v1.0.0-beta.5
         with:
           api_key: ${{ secrets.NEXUSMODS_API_KEY }}
-          file_group_id: 0 #TODO: update group_id once available
+          file_group_id: 7343078
           filename: ${{ env.OUT_DIR }}/${{env.NAME}}Setup-${{env.VERSION_APP}}.exe
           version: ${{env.VERSION_APP}}
           file_category: optional
