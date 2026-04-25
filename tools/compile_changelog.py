@@ -32,7 +32,7 @@ except ImportError:
 # ── canonical ordering ────────────────────────────────────────────────────────
 TYPE_ORDER = ["security", "deprecated", "removed", "added", "fixed", "changed"]
 
-PACKAGE_ORDER = ["App", "CLI", "Core", "Common", "ModKit", "RED4"]
+PACKAGE_ORDER = ["App", "CLI", "Nuget Packages"]
 
 
 # ── helpers ───────────────────────────────────────────────────────────────────
