@@ -71,7 +71,9 @@ jobs:
           }
 
       - name: Checkout changelog branch
-        run: git checkout changelog-staging
+        run: |
+          git fetch origin changelog-staging
+          git checkout changelog-staging
 
       - name: Read MD Version Changelog
         id: md_changelog
@@ -136,7 +138,9 @@ jobs:
         run: git tag -a ${{env.VERSION_APP}} -m "Release ${{env.VERSION_APP}}"
 
       - name: Push changes
-        run: git push origin main --tags
+        run: |
+          git push origin --delete changelog-staging
+          git push origin main --tags
 
       - name: Populate Release Template
         shell: pwsh
