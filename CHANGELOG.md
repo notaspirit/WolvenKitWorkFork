@@ -1,3 +1,46 @@
+## 1.1.1 — 2026-04-25
+
+### App
+
+#### Added
+
+* Added dark mode support to the main interface by @025459a4-214c-4ac2-a3f9-cdad55b165c4
+
+#### Changed
+
+* Bumped minimum required runtime version to 3.0 by @025459a4-214c-4ac2-a3f9-cdad55b165c4
+
+### CLI
+
+#### Added
+
+* Added dark mode support to the main interface by @025459a4-214c-4ac2-a3f9-cdad55b165c4
+
+#### Changed
+
+* Bumped minimum required runtime version to 3.0 by @025459a4-214c-4ac2-a3f9-cdad55b165c4
+
+### Core
+
+#### Added
+
+* Introduced plugin lifecycle hooks for init and teardown by @025459a4-214c-4ac2-a3f9-cdad55b165c4
+
+### Common
+
+#### Changed
+
+* Bumped minimum required runtime version to 3.0 by @025459a4-214c-4ac2-a3f9-cdad55b165c4
+
+### ModKit
+
+#### Added
+
+* Bundled starter templates for new mod projects
+
+
+---
+
 ## 170.0992 — 2026-04-25
 
 ### App
