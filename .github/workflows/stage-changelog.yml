@@ -16,6 +16,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Ensure Changes exist
+        shell: bash
+        run: |
+          git checkout -b main
+          if cmp -s 'changelog/!template.yaml' 'changelog/!unreleased.yaml'; then
+            echo "No changes in changelog, aborting."
+            exit 1
+          fi
+
       - name: Configure git
         run: |
           git config user.name "github-actions[bot]"
@@ -25,14 +34,6 @@ jobs:
         run: |
           git push origin --delete changelog-staging || true
           git checkout -b changelog-staging
-
-      - name: Ensure Changes exist
-        shell: bash
-        run: |
-          if cmp -s 'changelog/!template.yaml' 'changelog/!unreleased.yaml'; then
-            echo "No changes in changelog, aborting."
-            exit 1
-          fi
 
       - name: Get app version
         uses: naminodarie/get-net-sdk-project-versions-action@v2
