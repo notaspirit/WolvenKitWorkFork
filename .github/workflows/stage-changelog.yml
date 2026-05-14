@@ -4,6 +4,7 @@ on:
 
 env:
   PROJ: ./WolvenKit/WolvenKit.csproj
+  GH_TOKEN: ${{ github.token }}
 
 jobs:
   stage-changelog:
