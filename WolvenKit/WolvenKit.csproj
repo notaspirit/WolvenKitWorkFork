@@ -26,9 +26,9 @@
   </PropertyGroup>
 
   <PropertyGroup>
-    <VersionPrefix>8.18.1</VersionPrefix>
+    <VersionPrefix>9.9.9.9</VersionPrefix>
     <VersionSuffix>$(VersionSuffix)</VersionSuffix>
-    <InformationalVersion>8.18.1</InformationalVersion>
+    <InformationalVersion>9.9.9.9</InformationalVersion>
     <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
   </PropertyGroup>
 
