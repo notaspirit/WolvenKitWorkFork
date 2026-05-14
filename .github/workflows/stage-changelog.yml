@@ -26,6 +26,14 @@ jobs:
           git push origin --delete changelog-staging || true
           git checkout -b changelog-staging
 
+      - name: Ensure Changes exist
+        shell: bash
+        run: |
+          if cmp -s 'changelog/!template.yaml' 'changelog/!unreleased.yaml'; then
+            echo "No changes in changelog, aborting."
+            exit 1
+          fi
+
       - name: Get app version
         uses: naminodarie/get-net-sdk-project-versions-action@v2
         id: get_version
