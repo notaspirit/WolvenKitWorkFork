@@ -7,3 +7,50 @@ Template changelog entry:
       description: ""
 
 changes:
+  - type: "added"
+    packages: ["App"]
+    pr-number: 142
+    author: "8f14e45f-ea6d-4c8a-9b1d-1d7f0f8c2a11"
+    description: "Added workspace tab persistence across application restarts."
+
+  - type: "fixed"
+    packages: ["CLI"]
+    pr-number: 147
+    author: "b3c92d1a-6e2f-41f3-8c93-7b5c1e8f4d20"
+    description: "Fixed an issue where relative file paths were resolved incorrectly on Windows."
+
+  - type: "changed"
+    packages: ["Nuget Packages"]
+    pr-number: 153
+    author: "d94a7c11-1f83-45de-92d7-c6a8b2f0e5a9"
+    description: "Improved logging performance by reducing allocations during structured log formatting."
+
+  - type: "deprecated"
+    packages: ["CLI", "Nuget Packages"]
+    pr-number: 158
+    author: "2ac7f8de-54ab-4fd2-9a2f-0d2d5a7ce331"
+    description: "Deprecated the legacy --config-path argument in favor of the new profile system."
+
+  - type: "removed"
+    packages: ["App"]
+    pr-number: 161
+    author: "f17d8e32-95bb-4e67-b1f0-9cc3d88f7c44"
+    description: "Removed unused experimental telemetry settings from the preferences panel."
+
+  - type: "security"
+    packages: ["App", "CLI"]
+    pr-number: 166
+    author: "71be0d44-2fa1-4c2e-bf2a-4f18f4a55c72"
+    description: "Patched a vulnerability where temporary extracted files could inherit overly permissive permissions."
+
+  - type: "fixed"
+    packages: ["Nuget Packages"]
+    pr-number: 172
+    author: "ce91ab6e-3c0a-4c1f-9f4a-2c6be8c97d12"
+    description: "Fixed incorrect cancellation behavior in asynchronous archive loading operations."
+
+  - type: "added"
+    packages: ["App", "CLI"]
+    pr-number: 180
+    author: "4cda2f67-7b94-42b4-a15f-58d2f16f9b83"
+    description: "Added support for importing multiple project files in a single command."
