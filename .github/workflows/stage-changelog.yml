@@ -19,7 +19,7 @@ jobs:
       - name: Ensure Changes exist
         shell: bash
         run: |
-          git checkout -b main
+          git checkout main
           if cmp -s 'changelog/!template.yaml' 'changelog/!unreleased.yaml'; then
             echo "No changes in changelog, aborting."
             exit 1
