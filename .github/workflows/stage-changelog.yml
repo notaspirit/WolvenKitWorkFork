@@ -28,6 +28,7 @@ jobs:
 
       - name: Precompile Changelog
         run: |
+          pip install pyyaml
           python "tools/precompile_changelog.py" "changelog/unreleased" "changelog/!unreleased.yaml"
 
       - name: Ensure Changes exist
@@ -52,7 +53,6 @@ jobs:
       - name: Generate changelog
         run: |
           mkdir compiled-changelog
-          pip install pyyaml
           echo ${{env.VERSION_APP}}
           python "tools/compile_changelog.py" --release ${{env.VERSION_APP}} --input "changelog/!unreleased.yaml" --out-md "changelog/generated/CHANGELOG.md" --out-bb "changelog/generated/CHANGELOG.txt" --changelog "CHANGELOG.md"
 
