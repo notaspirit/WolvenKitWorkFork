@@ -5,6 +5,22 @@ from typing import Any
 import yaml
 
 
+class ChangelogDumper(yaml.SafeDumper):
+    pass
+
+
+def represent_list(dumper: yaml.Dumper, data: list[Any]) -> yaml.SequenceNode:
+    use_flow_style = all(isinstance(item, str) for item in data)
+    return dumper.represent_sequence(
+        "tag:yaml.org,2002:seq",
+        data,
+        flow_style=use_flow_style,
+    )
+
+
+ChangelogDumper.add_representer(list, represent_list)
+
+
 def read_yaml_file(path: Path) -> dict[str, Any]:
     with path.open("r", encoding="utf-8") as file:
         data = yaml.safe_load(file)
@@ -20,9 +36,10 @@ def read_yaml_file(path: Path) -> dict[str, Any]:
 
 def write_yaml_file(path: Path, data: dict[str, Any]) -> None:
     with path.open("w", encoding="utf-8") as file:
-        yaml.safe_dump(
+        yaml.dump(
             data,
             file,
+            Dumper=ChangelogDumper,
             sort_keys=False,
             allow_unicode=True,
             default_flow_style=False,
@@ -39,14 +56,15 @@ def normalize_changes(value: Any, source: Path) -> list[Any]:
     return value
 
 
-def collect_unreleased_changes(unreleased_dir: Path) -> list[Any]:
+def collect_unreleased_changes(unreleased_dir: Path) -> tuple[list[Any], list[Path]]:
     if not unreleased_dir.exists():
-        return []
+        return [], []
 
     if not unreleased_dir.is_dir():
         raise NotADirectoryError(f"{unreleased_dir} is not a directory")
 
     changes: list[Any] = []
+    files_to_delete: list[Path] = []
 
     for path in sorted(unreleased_dir.iterdir()):
         if not path.is_file():
@@ -57,8 +75,9 @@ def collect_unreleased_changes(unreleased_dir: Path) -> list[Any]:
 
         data = read_yaml_file(path)
         changes.extend(normalize_changes(data.get("changes"), path))
+        files_to_delete.append(path)
 
-    return changes
+    return changes, files_to_delete
 
 
 def append_changes_to_unreleased_file(unreleased_file: Path, changes: list[Any]) -> None:
@@ -72,6 +91,11 @@ def append_changes_to_unreleased_file(unreleased_file: Path, changes: list[Any])
 
     data["changes"] = existing_changes
     write_yaml_file(unreleased_file, data)
+
+
+def delete_files(paths: list[Path]) -> None:
+    for path in paths:
+        path.unlink()
 
 
 def parse_args() -> tuple[Path, Path]:
@@ -99,12 +123,13 @@ def parse_args() -> tuple[Path, Path]:
 def main() -> None:
     unreleased_dir, unreleased_file = parse_args()
 
-    changes = collect_unreleased_changes(unreleased_dir)
+    changes, files_to_delete = collect_unreleased_changes(unreleased_dir)
 
     if not changes:
         return
 
     append_changes_to_unreleased_file(unreleased_file, changes)
+    delete_files(files_to_delete)
 
 
 if __name__ == "__main__":
