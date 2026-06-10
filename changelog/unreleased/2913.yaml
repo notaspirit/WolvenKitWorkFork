@@ -12,7 +12,8 @@ changes:
       pr-number: 2913
       author: "afmlashjfgiu asf "
       description: "Can I get uhhh"
-  -   type: "added"
+
+    - type: "added"
       packages: [ "App", "CLI", "Nuget Packages" ]
       pr-number: 2913
       author: "afmlashjfgiu asf "
