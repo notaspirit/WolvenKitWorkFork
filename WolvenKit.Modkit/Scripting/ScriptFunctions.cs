@@ -32,6 +32,9 @@ public partial class ScriptFunctions
     {
         _loggerService = loggerService;
         _archiveManager = archiveManager;
+
+
+
         _redParserService = parserService;
     }
 
