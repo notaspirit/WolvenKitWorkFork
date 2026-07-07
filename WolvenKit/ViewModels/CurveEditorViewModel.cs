@@ -12,6 +12,8 @@ using WolvenKit.Views.Editors;
 using Math = System.Math;
 using Point = System.Windows.Point;
 
+
+
 namespace WolvenKit.ViewModels
 {
     /*
@@ -28,6 +30,10 @@ namespace WolvenKit.ViewModels
     internal class CurveEditorViewModel : INotifyPropertyChanged
     {
         #region fields
+
+
+
+        
 
         public const double XMIN = 0; // TODO fix this at some point
         public const double YMIN = XMIN;
@@ -151,9 +157,8 @@ namespace WolvenKit.ViewModels
             set
             {
                 if (value == _interpolationType)
-                {
                     return;
-                }
+                
 
                 _interpolationType = value;
                 OnPropertyChanged();
@@ -341,9 +346,8 @@ namespace WolvenKit.ViewModels
                 case Enums.EInterpolationType.Linear:
                     // no control points
                     foreach (var p in Curve)
-                    {
                         p.IsControlPoint = false;
-                    }
+
 
                     break;
                 case Enums.EInterpolationType.BezierQuadratic:
@@ -395,9 +399,7 @@ namespace WolvenKit.ViewModels
 
             // verify curve integrity
             if (!VerifyCurve())
-            {
                 throw new ArgumentNullException();
-            }
 
             List<Point> points;
 

@@ -13,12 +13,8 @@ public static class CommonFunctions
     public static string? GetResourceClassesFromExtension(ERedExtension extension)
     {
         foreach (var fileType in FileTypeHelper.FileTypes)
-        {
             if (fileType.Extension == extension)
-            {
                 return fileType.RootType.Name;
-            }
-        }
 
         return null;
     }

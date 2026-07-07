@@ -97,9 +97,7 @@ namespace WolvenKit.CLI.Services
             Func<TState, Exception, string> formatter)
         {
             if (!IsEnabled(logLevel))
-            {
                 return;
-            }
 
             var logLevelStr = "";
             logLevelStr = logLevel switch
