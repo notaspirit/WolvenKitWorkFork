@@ -393,9 +393,7 @@ namespace WolvenKit.ViewModels
 
             // verify curve integrity
             if (!VerifyCurve())
-            {
                 throw new ArgumentNullException();
-            }
 
             List<Point> points;
 
