@@ -1,6 +1,6 @@
 name: Lint Pull Requests
 on:
-  pull_request:
+  pull_request_target:
     paths:
       - '**/*.cs'
 
@@ -11,6 +11,8 @@ permissions:
 jobs:
   format-suggest:
     runs-on: ubuntu-latest
+    env:
+      EnableWindowsTargeting: 'true'
     steps:
       - uses: actions/checkout@v4
         with:
@@ -27,36 +29,14 @@ jobs:
           files: |
             **/*.cs
 
-      - name: Group changed files by top-level folder and format
-        if: steps.changed-files.outputs.any_changed == 'true'
-        shell: bash
-        run: |
-          declare -A proj_files
-
-          for f in ${{ steps.changed-files.outputs.all_changed_files }}; do
-            top_dir="${f%%/*}"          # first path segment, e.g. "WolvenKit.RED4"
-            rel_path="${f#*/}"          # rest of path relative to that folder
-
-            csproj=$(find "$top_dir" -maxdepth 1 -name "*.csproj" | head -n1)
-            if [ -z "$csproj" ]; then
-              echo "::warning file=$f::No .csproj found in $top_dir, skipping"
-              continue
-            fi
-
-            if [ -z "${proj_files[$csproj]}" ]; then
-              proj_files[$csproj]="$rel_path"
-            else
-              proj_files[$csproj]="${proj_files[$csproj]};$rel_path"
-            fi
-          done
-
-          for csproj in "${!proj_files[@]}"; do
-            echo "Formatting $csproj -> ${proj_files[$csproj]}"
-            dotnet format style "$csproj" \
-              --include "${proj_files[$csproj]}" \
-              --severity info \
-              -v diagnostic
-          done
+  - name: Format changed files
+      if: steps.changed-files.outputs.any_changed == 'true'
+      shell: bash
+      run: |
+        python tools/dotnet_format_changed.py \
+          --files ${{ steps.changed-files.outputs.all_changed_files }} \
+          --repo-root . \
+          --severity info
 
       - name: Suggest changes
         if: steps.changed-files.outputs.any_changed == 'true'
