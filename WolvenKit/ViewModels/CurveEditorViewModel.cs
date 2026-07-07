@@ -29,6 +29,10 @@ namespace WolvenKit.ViewModels
     {
         #region fields
 
+
+
+        
+
         public const double XMIN = 0; // TODO fix this at some point
         public const double YMIN = XMIN;
         private const double TOLERANCE = 0.001;
