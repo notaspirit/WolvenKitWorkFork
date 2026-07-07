@@ -29,14 +29,14 @@ jobs:
           files: |
             **/*.cs
 
-  - name: Format changed files
-      if: steps.changed-files.outputs.any_changed == 'true'
-      shell: bash
-      run: |
-        python tools/dotnet_format_changed.py \
-          --files ${{ steps.changed-files.outputs.all_changed_files }} \
-          --repo-root . \
-          --severity info
+      - name: Format changed files
+          if: steps.changed-files.outputs.any_changed == 'true'
+          shell: bash
+          run: |
+            python tools/dotnet_format_changed.py \
+              --files ${{ steps.changed-files.outputs.all_changed_files }} \
+              --repo-root . \
+              --severity info
 
       - name: Suggest changes
         if: steps.changed-files.outputs.any_changed == 'true'
