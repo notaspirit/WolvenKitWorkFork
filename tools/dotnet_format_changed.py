@@ -101,6 +101,11 @@ def run_dotnet_format(csproj: Path, files: list[str], severity: str, cwd: Path) 
         severity,
         "-v",
         "diagnostic",
+        # diagnostics know to cause crashes
+        "--exclude-diagnostics",
+        # CA2208 => Instantiate argument exceptions correctly
+        # IDE0130 => Namespace does not match folder structure
+        "CA2208 IDE0130"
     ]
 
     print(f"Formatting {csproj} -> {include_arg}")
