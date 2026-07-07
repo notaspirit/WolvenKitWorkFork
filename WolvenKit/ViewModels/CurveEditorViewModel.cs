@@ -151,9 +151,8 @@ namespace WolvenKit.ViewModels
             set
             {
                 if (value == _interpolationType)
-                {
                     return;
-                }
+                
 
                 _interpolationType = value;
                 OnPropertyChanged();
