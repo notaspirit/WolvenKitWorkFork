@@ -94,7 +94,6 @@ def run_dotnet_format(csproj: Path, files: list[str], severity: str, cwd: Path) 
     cmd = [
         "dotnet",
         "format",
-        "style",
         str(csproj),
         "--include",
         include_arg,
