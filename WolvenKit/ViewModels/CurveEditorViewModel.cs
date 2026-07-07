@@ -12,6 +12,8 @@ using WolvenKit.Views.Editors;
 using Math = System.Math;
 using Point = System.Windows.Point;
 
+
+
 namespace WolvenKit.ViewModels
 {
     /*
