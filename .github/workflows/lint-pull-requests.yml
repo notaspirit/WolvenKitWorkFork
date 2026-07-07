@@ -29,7 +29,6 @@ jobs:
         if: steps.changed-files.outputs.any_changed == 'true'
         shell: bash
         run: |
-          echo "Running dotnet-format on ${{ steps.changed-files.outputs.all_changed_files }}"
           python tools/dotnet_format_changed.py --files ${{ steps.changed-files.outputs.all_changed_files }} --repo-root . --severity info
       - name: Suggest changes
         if: steps.changed-files.outputs.any_changed == 'true'
