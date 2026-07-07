@@ -41,7 +41,10 @@ def group_files_by_project(
     """
     Groups changed file paths (relative to repo root, using '/' separators)
     by the .csproj found in their top-level folder. Returns a dict mapping
-    csproj path -> list of file paths relative to that csproj's directory.
+    csproj path -> list of file paths relative to REPO ROOT (not the csproj's
+    directory), since `dotnet format --include` resolves paths relative to
+    the current working directory the command is invoked from, not the
+    project file's directory.
     """
     grouped: dict[Path, list[str]] = defaultdict(list)
 
@@ -62,7 +65,7 @@ def group_files_by_project(
             )
             continue
 
-        top_dir_name, remainder = parts
+        top_dir_name, _remainder = parts
         top_dir = repo_root / top_dir_name
 
         csproj = find_csproj(top_dir)
@@ -74,12 +77,19 @@ def group_files_by_project(
             )
             continue
 
-        grouped[csproj].append(remainder)
+        # Keep the full path relative to repo root (e.g. "WolvenKit/ViewModels/Foo.cs"),
+        # not stripped down to the project-relative remainder.
+        grouped[csproj].append(rel_path)
 
     return grouped
 
 
-def run_dotnet_format(csproj: Path, files: list[str], severity: str) -> int:
+def run_dotnet_format(csproj: Path, files: list[str], severity: str, cwd: Path) -> int:
+    # csproj is an absolute path here (repo_root / top_dir / *.csproj was
+    # resolved via glob against an already-resolved repo_root), so pass it
+    # through as-is. --include entries are relative to `cwd` (the repo root),
+    # since that's what dotnet format resolves them against, not the csproj's
+    # own directory.
     include_arg = ";".join(files)
     cmd = [
         "dotnet",
@@ -102,7 +112,7 @@ def run_dotnet_format(csproj: Path, files: list[str], severity: str) -> int:
     # non-Windows runners (e.g. net8.0-windows on a Linux GitHub runner).
     env.setdefault("EnableWindowsTargeting", "true")
 
-    result = subprocess.run(cmd, env=env)
+    result = subprocess.run(cmd, cwd=cwd, env=env)
     return result.returncode
 
 
@@ -170,7 +180,7 @@ def main() -> int:
 
     had_failure = False
     for csproj, files in grouped.items():
-        exit_code = run_dotnet_format(csproj, files, args.severity)
+        exit_code = run_dotnet_format(csproj, files, args.severity, cwd=repo_root)
         if exit_code != 0:
             had_failure = True
             print(
