@@ -1,8 +1,8 @@
-name: unit-tests-on-pr.yml
+name: Unit Tests
 on:
   pull_request:
-
-
+    paths:
+      - '*.cs'
 
 jobs:
   unit-tests:
