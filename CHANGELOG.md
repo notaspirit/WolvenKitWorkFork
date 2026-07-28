@@ -7,7 +7,13 @@
 * *Added*: Added a graph editor for .behavior files with basic tree editing actions. by @misterchedda
 * *Fixed*: .ent preview fix (index out of bounds) by @Ametis81
 * *Fixed*: Archive file path being incorrectly read from modlist.txt by @manavortex
-* *Fixed*: .mesh export now correctly preserves bone rotations by caclulating them from boneRigMatrices. Import now recalculates boneRigMatrices, bonePositions and boneVertexEpsilons based on the data in the glb. by @DoctorPresto
+* *Fixed*: .mesh export now correctly preserves bone rotations by caclulating them from boneRigM
+*
+*
+*
+*
+*
+* atrices. Import now recalculates boneRigMatrices, bonePositions and boneVertexEpsilons based on the data in the glb. by @DoctorPresto
 * *Fixed*: Fixed the search function for quest and scene editor. The editor will now navigate through matching graph nodes. by @misterchedda
 * *Fixed*: Prompt before opening external quest phase resources from phase nodes in the quest phase editor. by @misterchedda
 * *Fixed*: 'clear all materials' will now properly refresh the view by @manavortex
