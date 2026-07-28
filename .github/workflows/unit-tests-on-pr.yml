@@ -2,7 +2,21 @@ name: Unit Tests
 on:
   pull_request:
     paths:
-      - '*.cs'
+      - '**/*.cs'
+      - '**/*.csx'
+      - '**/*.csproj'
+      - '**/*.sln'
+      - '**/*.props'
+      - '**/*.targets'
+  push:
+    branches: [ main, dev ]
+    paths:
+      - '**/*.cs'
+      - '**/*.csx'
+      - '**/*.csproj'
+      - '**/*.sln'
+      - '**/*.props'
+      - '**/*.targets'
 
 jobs:
   unit-tests:

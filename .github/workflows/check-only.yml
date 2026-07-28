@@ -1,9 +1,24 @@
 name: check-only
 on:
   pull_request:
-    branches: [main, dev]
+    paths:
+      - '**/*.cs'
+      - '**/*.csx'
+      - '**/*.csproj'
+      - '**/*.sln'
+      - '**/*.props'
+      - '**/*.targets'
+      - '**/*.xaml'
   push:
     branches: [main, dev]
+    paths:
+      - '**/*.cs'
+      - '**/*.csx'
+      - '**/*.csproj'
+      - '**/*.sln'
+      - '**/*.props'
+      - '**/*.targets'
+      - '**/*.xaml'
 
 jobs:
   desktop-win:
