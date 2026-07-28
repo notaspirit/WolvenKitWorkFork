@@ -1,0 +1,15 @@
+name: unit-tests-on-pr.yml
+on:
+  pull_request:
+
+
+
+jobs:
+  unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Run unit tests
+        run: |
+          cd Tests/WolvenKit.UnitTests
+          dotnet test
