@@ -83,6 +83,7 @@ jobs:
           echo "TAG=$tag" >> $env:GITHUB_ENV
 
           Write-Host "Using version: $version"
+          exit 0
       - run: echo "PORTABLE=${{env.NAME}}-${{env.VERSION_APP}}.zip" >> $env:GITHUB_ENV
 
       ##########################################
