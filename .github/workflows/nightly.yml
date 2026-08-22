@@ -90,7 +90,7 @@ jobs:
       # APP
 
       # Publish app
-      - run: dotnet publish ./WolvenKit/WolvenKit.csproj -o ./publish/app/ -c Release -p:InformationalVersion="${{env.VERSION_APP}}" -p:Version="${{env.VERSION_APP}}" -p:FileVersion="0.0.0.0" -p:AssemblyVersion="0.0.0.0" -p:DebugType=None -p:DebugSymbols=false
+      - run: dotnet publish ./WolvenKit/WolvenKit.csproj -o ./publish/app/ -c Release -p:DebugType=None -p:DebugSymbols=false
       - run: Compress-Archive -Path ./publish/app/* -DestinationPath ${{env.FINALOUT}}/${{env.PORTABLE}}
 
       ##########################################
