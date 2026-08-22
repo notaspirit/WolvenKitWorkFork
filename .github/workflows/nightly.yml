@@ -90,15 +90,7 @@ jobs:
       # APP
 
       # Publish app
-      - run: dotnet publish ./WolvenKit/WolvenKit.csproj \
-              -o ./publish/app/ \
-              -c Release \
-              -p:InformationalVersion="${{env.VERSION_APP}}" \
-              -p:Version="${{env.VERSION_APP}}" \
-              -p:FileVersion="0.0.0.0" \
-              -p:AssemblyVersion="0.0.0.0" \
-              -p:DebugType=None \
-              -p:DebugSymbols=false
+      - run: dotnet publish ./WolvenKit/WolvenKit.csproj -o ./publish/app/ -c Release -p:InformationalVersion="${{env.VERSION_APP}}" -p:Version="${{env.VERSION_APP}}" -p:FileVersion="0.0.0.0" -p:AssemblyVersion="0.0.0.0" -p:DebugType=None -p:DebugSymbols=false
       - run: Compress-Archive -Path ./publish/app/* -DestinationPath ${{env.FINALOUT}}/${{env.PORTABLE}}
 
       ##########################################
@@ -108,7 +100,7 @@ jobs:
 
       # Publish console
       - name: publish console
-        run: dotnet publish ./WolvenKit.CLI/WolvenKit.CLI.csproj -o ./publish/console/ -c Release -p:InformationalVersion="${{env.VERSION_APP}}" -p:Version="${{env.VERSION_APP}}" -p:FileVersion="${{env.VERSION_APP}}" -p:AssemblyVersion="${{env.VERSION_APP}}" -p:DebugType=None -p:DebugSymbols=false
+        run: dotnet publish ./WolvenKit.CLI/WolvenKit.CLI.csproj -o ./publish/console/ -c Release -p:InformationalVersion="${{env.VERSION_APP}}" -p:Version="${{env.VERSION_APP}}" -p:FileVersion="0.0.0.0" -p:AssemblyVersion="0.0.0.0" -p:DebugType=None -p:DebugSymbols=false
       - name: zip console
         run: Compress-Archive -Path ./publish/console/* -DestinationPath ${{env.FINALOUT}}/${{env.CONSOLE}}
 
