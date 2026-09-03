@@ -91,7 +91,6 @@ jobs:
 
           Write-Host "Using version: $version"
           exit 0
-      - run: echo "PORTABLE=${{env.NAME}}-${{env.VERSION_APP}}.zip" >> $env:GITHUB_ENV
 
       - run: echo "VERSION_APP=${{steps.get_version.outputs.assembly-version}}-${{ env.VERSION_SUFFIX }}" >> $env:GITHUB_ENV
       - run: echo "PORTABLE=${{env.NAME}}-${{env.VERSION_APP}}.zip" >> $env:GITHUB_ENV
