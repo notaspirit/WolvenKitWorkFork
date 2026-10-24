@@ -345,6 +345,8 @@ public partial class AppViewModel : ObservableObject/*, IAppViewModel*/
         }
 #endif
 
+        ShowChangeLogIfAvailableCommand.SafeExecute();
+
         CheckForScriptUpdatesCommand.SafeExecute();
         CheckForTemplateUpdatesCommand.SafeExecute();
         CheckForLongPathSupport();
@@ -702,6 +704,17 @@ public partial class AppViewModel : ObservableObject/*, IAppViewModel*/
     }
 
     [RelayCommand]
+    private async Task ShowChangeLogIfAvailable()
+    {
+        var changelog = _updateService.GetSavedChangelog();
+        if (changelog is not null)
+        {
+            await SetActiveDialog(new MarkdownInfoViewModel(this, "Changelog", changelog));
+            _updateService.ClearSavedChangelog();
+        }
+    }
+
+    [RelayCommand]
     private async Task CheckForUpdates(bool isDuringStartup = false)
     {
         if (isDuringStartup)
@@ -711,12 +724,17 @@ public partial class AppViewModel : ObservableObject/*, IAppViewModel*/
                 return;
             }
 
-            if (!await _updateService.IsUpdateAvailable())
+            var updateStatus = await _updateService.IsUpdateAvailable();
+
+            if (updateStatus == UpdateAvailability.None)
             {
                 return;
             }
 
-            await SetActiveDialog(new UpdateDialogViewModel(this, _updateService, SettingsManager, _loggerService, !SettingsManager.AlwaysAskBeforeUpdating, true));
+            var skipPermissionState = updateStatus != UpdateAvailability.Major &&
+                                      !SettingsManager.AlwaysAskBeforeUpdating;
+
+            await SetActiveDialog(new UpdateDialogViewModel(this, _updateService, SettingsManager, _loggerService, skipPermissionState, updateStatus));
         }
         else
         {
