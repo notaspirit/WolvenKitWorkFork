@@ -46,16 +46,22 @@ jobs:
       ##########################################
       # VERSIONS
 
-      # get the version from the app project
+      # Read the NuGet/SemVer version from the app project, including prerelease suffixes.
       - name: Get app version
-        uses: naminodarie/get-net-sdk-project-versions-action@v2
         id: get_version
-        with:
-          proj-path: ${{env.PROJ}}
+        shell: pwsh
+        run: |
+          $version = (dotnet msbuild "$env:PROJ" -getProperty:Version).Trim()
+          if (-not $version) {
+            throw "Could not determine Version from $env:PROJ"
+          }
 
-      - name: change version
-        shell: bash
-        run: echo "VERSION_APP=${{steps.get_version.outputs.assembly-version}}" >> $GITHUB_ENV
+          "VERSION_APP=$version" >> $env:GITHUB_ENV
+
+          $isPrerelease = $version -match '(alpha|beta|rc)'
+          "IS_PRERELEASE=$($isPrerelease.ToString().ToLowerInvariant())" >> $env:GITHUB_ENV
+          "Detected version: $version"
+          "Is prerelease: $isPrerelease"
 
       - name: Create Release Tag
         run: |
@@ -147,6 +153,7 @@ jobs:
         with:
           tag_name: ${{ env.VERSION_APP }}
           draft: false
+          prerelease: ${{ env.IS_PRERELEASE }}
           generate_release_notes: false
           body_path: "RELEASE.md"
           files: |
@@ -154,60 +161,3 @@ jobs:
             ${{ env.OUT_DIR }}/*.exe
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload Portable to Nexus Mods
-        uses: Nexus-Mods/upload-action@v1.0.0-beta.5
-        with:
-          api_key: ${{ secrets.NEXUSMODS_API_KEY }}
-          file_group_id: 2464501
-          filename: ${{ env.OUT_DIR }}/${{env.NAME}}-${{env.VERSION_APP}}.zip
-          version: ${{env.VERSION_APP}}
-          file_category: main
-          description: ${{ steps.bb_changelog.outputs.content }}
-
-      - name: Upload Installer to Nexus Mods
-        uses: Nexus-Mods/upload-action@v1.0.0-beta.5
-        with:
-          api_key: ${{ secrets.NEXUSMODS_API_KEY }}
-          file_group_id: 2464504
-          filename: ${{ env.OUT_DIR }}/${{env.NAME}}Setup-${{env.VERSION_APP}}.exe
-          version: ${{env.VERSION_APP}}
-          file_category: optional
-          description: ${{ steps.bb_changelog.outputs.content }}
-
-  publish-nugets:
-    runs-on: windows-latest
-
-    steps:
-      - name: checkout
-        uses: actions/checkout@v4
-      - name: Setup .NET Core
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: 10.x
-
-      # Pack and upload nugets for Core, Types, Modkit and CLI
-      - run: dotnet pack .\WolvenKit.Core\WolvenKit.Core.csproj
-      - name: Core
-        continue-on-error: true
-        run: dotnet nuget push .\WolvenKit.Core\nupkg\*.nupkg --api-key ${{secrets.NUGET_KEY}} --source "https://api.nuget.org/v3/index.json" --skip-duplicate
-
-      - run: dotnet pack .\WolvenKit.RED4\WolvenKit.RED4.csproj
-      - name: RED4
-        continue-on-error: true
-        run: dotnet nuget push .\WolvenKit.RED4\nupkg\*.nupkg --api-key ${{secrets.NUGET_KEY}} --source "https://api.nuget.org/v3/index.json" --skip-duplicate
-
-      - run: dotnet pack .\WolvenKit.Modkit\WolvenKit.Modkit.csproj
-      - name: Modkit
-        continue-on-error: true
-        run: dotnet nuget push .\WolvenKit.Modkit\nupkg\*.nupkg --api-key ${{secrets.NUGET_KEY}} --source "https://api.nuget.org/v3/index.json" --skip-duplicate
-
-      - run: dotnet pack .\WolvenKit.CLI\WolvenKit.CLI.csproj
-      - name: CLI
-        continue-on-error: true
-        run: dotnet nuget push .\WolvenKit.CLI\nupkg\*.nupkg --api-key ${{secrets.NUGET_KEY}} --source "https://api.nuget.org/v3/index.json" --skip-duplicate
-
-      - run: dotnet pack .\WolvenKit.Common\WolvenKit.Common.csproj
-      - name: Common
-        continue-on-error: true
-        run: dotnet nuget push .\WolvenKit.Common\nupkg\*.nupkg --api-key ${{secrets.NUGET_KEY}} --source "https://api.nuget.org/v3/index.json" --skip-duplicate
