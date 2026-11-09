@@ -33,7 +33,29 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: 10.x
+          
+      - name: Show SDK version
+        run: |
+          dotnet --info
+          dotnet --list-sdks
+          
+      - name: Inspect failing source
+        shell: pwsh
+        run: |
+          $file = "WolvenKit.App/ViewModels/Tools/ChunkViewModelExtended/ChunkViewModel.Value.cs"
+          $lines = Get-Content $file
+          1308..1325 | ForEach-Object {
+            "{0}: {1}" -f $_, $lines[$_ - 1]
+          }
 
+      - name: Compiler diagnostics
+        run: |
+          dotnet --info
+          dotnet build WolvenKit.App/WolvenKit.App.csproj \
+            -c Release \
+            -v:diag \
+            > build.log
+      
       - name: Publish with Dotnet
         run: dotnet publish .\WolvenKit\WolvenKit.csproj -o .\publish -c Release -p:DebugType=None -p:DebugSymbols=false
 
