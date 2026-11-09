@@ -51,10 +51,7 @@ jobs:
       - name: Compiler diagnostics
         run: |
           dotnet --info
-          dotnet build WolvenKit.App/WolvenKit.App.csproj \
-            -c Release \
-            -v:diag \
-            > build.log
+          dotnet build WolvenKit.App/WolvenKit.App.csproj -c Release -v:diag
       
       - name: Publish with Dotnet
         run: dotnet publish .\WolvenKit\WolvenKit.csproj -o .\publish -c Release -p:DebugType=None -p:DebugSymbols=false
